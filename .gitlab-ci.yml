@@ -1,14 +1,23 @@
-# The Docker image that will be used to build your app
-image: hugomods/hugo:debian-nightly
-create-pages:
-  pages:
-    # The folder that contains the files to be exposed at the Page URL
-    publish: public
-  rules:
-    # This ensures that only pushes to the default branch will trigger
-    # a pages deploy
-    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
-  # Functions that should be executed before the build script is run
-  before_script: []
+default:
+  image: "hugomods/hugo:exts"
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  THEME_URL: "github.com/hanwenguo/hugo-theme-nostyleplease.git"
+
+test:  # builds and tests your site
   script:
-    - hugo build
+    - hugo
+  rules:
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+
+create-pages:  # a user-defined job that builds your pages and saves them to the specified path.
+  script:
+    - hugo
+  pages: true  # specifies that this is a Pages job
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment: production
