@@ -1,4 +1,5 @@
 {{ if site.Params.theme_config.isShowFooter }}
+<div style="margin-top: 100px;">
     {{ $footerContent := readFile "layouts/footer.md" }}
     {{ if and $footerContent (ne $footerContent "") }}
         {{ $footerContent | markdownify }}
@@ -8,4 +9,5 @@
             <p>&copy; {{ now.Format "2006" }} {{ site.Title }}</p>
         </footer>
     {{ end }}
+</div>
 {{ end }}

@@ -2,3 +2,8 @@ baseURL = 'https://ജയ്മാ.com'
 languageCode = 'en-us'
 title = "ജയ്മാ!"
 theme = 'nostyleplease'
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true

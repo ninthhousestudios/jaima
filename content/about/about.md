@@ -4,9 +4,11 @@ draft = false
 title = 'About'
 +++
 
+<br>
 
 {{< figure src="/images/amma.jpg" title="" width="300">}}
 
+<br>
 
 My name is Josh. This is my little corner of the internet. I'm going to do whatever I
 want here and put whatever I want here. It's an adventure!

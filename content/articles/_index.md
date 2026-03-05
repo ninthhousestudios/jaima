@@ -10,3 +10,5 @@ menu = 'main'
 # Tangentials
 
 [Temperament Deaf (not tone deaf)](/articles/tangentials/temperament-deaf/temperament-deaf)
+
+<br>
