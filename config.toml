@@ -4,6 +4,8 @@
     min      = "0.41.0"
 
 [markup]
+  [markup.renderer]
+    unsafe = true
   [markup.goldmark]
     [markup.goldmark.parser]
       [markup.goldmark.parser.attribute]
