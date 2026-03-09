@@ -5,7 +5,16 @@ title = 'Articles'
 menu = 'main'
 +++
 
+ [about](/about/about)
+ [posts](/posts/)
+ [projects](/projects/)
+ [articles](/articles/)
+
+<br>
+
 {{< figure src="/images/amma-arriving.jpg" title="" width="300">}}
+
+<br>
 
 # Tangentials
 

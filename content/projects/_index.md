@@ -4,7 +4,27 @@ draft = false
 title = 'Projects'
 +++
 
+ [about](/about/about)
+ [posts](/posts/)
+ [projects](/projects/)
+ [articles](/articles/)
+
+<br>
+
 {{< figure src="/images/amma-devi-smiling.jpg" title="" width="300">}}
+
+<br>
+
+## Ninth House Studios
+
+[Ninth House Studios](https://ninthhouse.studio)
+
+Ninth House Studios LLC is a new business just created by myself. I will be starting out
+by making simple, beautiful astrology apps. I'm also planning on diving into image
+generation and including that as an important part of my practice. My real hope is to be
+able to implement Arjuna, my proposed universal astrological calculation service, and
+then perhaps make more complex, beautiful astrology apps.
+
 
 ## libaditya
 

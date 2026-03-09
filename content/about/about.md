@@ -4,6 +4,11 @@ draft = false
 title = 'About'
 +++
 
+ [about](/about/about)
+ [posts](/posts/)
+ [projects](/projects/)
+ [articles](/articles/)
+
 <br>
 
 {{< figure src="/images/amma.jpg" title="" width="300">}}
