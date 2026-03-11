@@ -10,12 +10,22 @@ menu = 'main'
  [projects](/projects/)
  [articles](/articles/)
 
+[sanskrit](#sanskrit) [tangentials](#tangentials)
+
 <br>
 
 {{< figure src="/images/amma-arriving.jpg" title="" width="300">}}
 
 <br>
 
+<a name="sanskrit"></a>
+# Sanskrit
+
+[Sanskrit Glossary](/articles/sanskrit/sanskrit-glossary)
+
+<br>
+
+<a name="tangentials"></a>
 # Tangentials
 
 [Temperament Deaf (not tone deaf)](/articles/tangentials/temperament-deaf/temperament-deaf)

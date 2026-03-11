@@ -1,0 +1,11 @@
+{{ define "main" }}
+
+{{ partial "back_link.html" .}}
+
+<header>
+    <h1>{{ .Title }}</h1>
+</header>
+
+{{ .Content }}
+
+{{ end }}

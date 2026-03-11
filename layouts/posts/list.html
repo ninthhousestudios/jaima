@@ -1,6 +1,8 @@
 {{ define "main" }}
 
-<h1>{{ .Title }}</h1>
+<header>
+    <h1>{{ .Title }}</h1>
+</header>
 
 {{ .Content }}
 
@@ -15,7 +17,7 @@
     </ul>
     {{ end }}
 {{ else }}
-    {{ partial "post_list.html" (dict "context" . "section" .Section)}}
+    {{ partial "post_list.html" (dict "context" . "section" .Section) }}
 {{ end }}
 
 {{ end }}

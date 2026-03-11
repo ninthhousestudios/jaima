@@ -9,12 +9,15 @@ title = 'Projects'
  [projects](/projects/)
  [articles](/articles/)
 
+[ninth-house-studios](#ninth-house-studios) [libaditya](#libaditya)
+
 <br>
 
 {{< figure src="/images/amma-devi-smiling.jpg" title="" width="300">}}
 
 <br>
 
+<a name="ninth-house-studios"></a>
 ## Ninth House Studios
 
 [Ninth House Studios](https://ninthhouse.studio)
@@ -26,6 +29,7 @@ able to implement Arjuna, my proposed universal astrological calculation service
 then perhaps make more complex, beautiful astrology apps.
 
 
+<a name="libaditya"></a>
 ## libaditya
 
 [libaditya](https://gitlab.com/j0sh4rp3/libaditya)
