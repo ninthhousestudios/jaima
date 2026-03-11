@@ -7,12 +7,14 @@ variables:
 
 test:  # builds and tests your site
   script:
+    - git submodule update --init --recursive
     - hugo
   rules:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
 
 create-pages:  # a user-defined job that builds your pages and saves them to the specified path.
   script:
+    - git submodule update --init --recursive
     - hugo
   pages: true  # specifies that this is a Pages job
   artifacts:
