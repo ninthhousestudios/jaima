@@ -22,6 +22,7 @@ import Base from '../layouts/Base.astro';
 <script>
   import { initParticles } from '../components/particles';
   import { initLotusNav } from '../components/lotus-nav';
+  import { initTabMantra } from '../components/tab-mantra';
   import { initPhotoMode } from '../components/photo-mode';
   import { initJapaMode, destroyJapa } from '../components/japa-mode';
   import { initGarlandMode } from '../components/garland-mode';
@@ -143,6 +144,7 @@ import Base from '../layouts/Base.astro';
   }
 
   initAtmosphere();
+  initTabMantra();
   runThreshold();
 </script>
 
