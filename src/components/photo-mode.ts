@@ -32,7 +32,7 @@ export function initPhotoMode(darshan: HTMLElement) {
   `;
   darshan.parentElement!.appendChild(nav);
 
-  const img = darshan.querySelector('#darshan-photo') as HTMLImageElement;
+  let currentImg = darshan.querySelector('#darshan-photo') as HTMLImageElement;
 
   function crossfade(newIndex: number) {
     if (transitioning || newIndex === currentIndex) return;
@@ -41,22 +41,38 @@ export function initPhotoMode(darshan: HTMLElement) {
     const newImg = document.createElement('img');
     newImg.src = PHOTOS[newIndex].src;
     newImg.alt = PHOTOS[newIndex].alt;
-    newImg.id = 'darshan-photo-next';
-    newImg.className = 'darshan-photo-transition';
+    newImg.id = 'darshan-photo';
+    newImg.style.opacity = '0';
+    newImg.style.transition = 'opacity 1.5s ease';
     darshan.appendChild(newImg);
 
-    requestAnimationFrame(() => {
-      newImg.classList.add('visible');
-      img.classList.add('fading');
+    const oldImg = currentImg;
+    oldImg.style.transition = 'opacity 1.5s ease';
 
-      setTimeout(() => {
-        img.src = PHOTOS[newIndex].src;
-        img.alt = PHOTOS[newIndex].alt;
-        img.classList.remove('fading');
-        newImg.remove();
-        currentIndex = newIndex;
-        transitioning = false;
-      }, 1500);
+    newImg.decode().then(() => {
+      requestAnimationFrame(() => {
+        newImg.style.opacity = '1';
+        oldImg.style.opacity = '0';
+
+        setTimeout(() => {
+          oldImg.remove();
+          currentImg = newImg;
+          currentIndex = newIndex;
+          transitioning = false;
+        }, 1500);
+      });
+    }).catch(() => {
+      requestAnimationFrame(() => {
+        newImg.style.opacity = '1';
+        oldImg.style.opacity = '0';
+
+        setTimeout(() => {
+          oldImg.remove();
+          currentImg = newImg;
+          currentIndex = newIndex;
+          transitioning = false;
+        }, 1500);
+      });
     });
   }
 
