@@ -9,13 +9,97 @@ import Base from '../layouts/Base.astro';
       <p class="mantra dev" lang="hi">ॐ अमृतेश्वर्यै नमः</p>
     </div>
   </div>
-  <div id="room" class="hidden">
+  <div id="room">
+    <div id="atmosphere"></div>
     <div id="darshan">
       <img src="/images/photos/amma-devi1.png" alt="Amma in Devi Bhava" id="darshan-photo" />
     </div>
     <canvas id="particles"></canvas>
   </div>
 </Base>
+
+<script>
+  function initAtmosphere() {
+    const root = document.documentElement;
+    const hour = new Date().getHours();
+
+    let hue: number, saturation: number, lightness: number, warmth: number;
+
+    if (hour >= 5 && hour < 8) {
+      // Dawn — soft gold, gentle
+      hue = 35; saturation = 60; lightness = 12; warmth = 0.7;
+    } else if (hour >= 8 && hour < 12) {
+      // Morning — warmer, brighter
+      hue = 30; saturation = 55; lightness = 14; warmth = 0.8;
+    } else if (hour >= 12 && hour < 16) {
+      // Midday — brightest, most saturated
+      hue = 25; saturation = 50; lightness = 16; warmth = 0.9;
+    } else if (hour >= 16 && hour < 19) {
+      // Evening — deep warmth, saffron
+      hue = 20; saturation = 65; lightness = 13; warmth = 0.85;
+    } else if (hour >= 19 && hour < 22) {
+      // Dusk — crimson deepening
+      hue = 350; saturation = 50; lightness = 10; warmth = 0.6;
+    } else {
+      // Night — intimate, lamp-like
+      hue = 340; saturation = 40; lightness = 8; warmth = 0.4;
+    }
+
+    root.style.setProperty('--atm-hue', String(hue));
+    root.style.setProperty('--atm-sat', `${saturation}%`);
+    root.style.setProperty('--atm-lit', `${lightness}%`);
+    root.style.setProperty('--atm-warmth', String(warmth));
+    root.style.setProperty('--atm-glow-color', `hsl(${hue}, ${saturation}%, ${lightness + 10}%)`);
+    root.style.setProperty('--atm-glow-opacity', String(warmth * 0.3));
+  }
+
+  function runThreshold() {
+    const threshold = document.getElementById('threshold')!;
+    const room = document.getElementById('room')!;
+    const mantras = threshold.querySelectorAll<HTMLElement>('.mantra');
+
+    let entered = false;
+
+    function enterRoom() {
+      if (entered) return;
+      entered = true;
+
+      threshold.classList.add('dissolving');
+      threshold.addEventListener('transitionend', () => {
+        threshold.style.display = 'none';
+      }, { once: true });
+
+      room.classList.add('entering');
+    }
+
+    mantras.forEach((el, i) => {
+      setTimeout(() => {
+        el.classList.add('visible');
+      }, 800 + i * 1200);
+    });
+
+    const autoEnterDelay = 800 + mantras.length * 1200 + 2500;
+    const autoTimer = setTimeout(enterRoom, autoEnterDelay);
+
+    threshold.addEventListener('click', () => {
+      clearTimeout(autoTimer);
+      enterRoom();
+    });
+
+    threshold.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        clearTimeout(autoTimer);
+        enterRoom();
+      }
+    });
+
+    threshold.setAttribute('tabindex', '0');
+    threshold.focus();
+  }
+
+  initAtmosphere();
+  runThreshold();
+</script>
 
 <style>
   #threshold {
@@ -26,13 +110,21 @@ import Base from '../layouts/Base.astro';
     justify-content: center;
     z-index: 100;
     background: #0a0008;
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity 2s ease-out;
+  }
+
+  #threshold.dissolving {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .mantra-lines {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.8rem;
   }
 
   .mantra {
@@ -40,15 +132,41 @@ import Base from '../layouts/Base.astro';
     opacity: 0;
     letter-spacing: 0.05em;
     color: #d4a574;
+    transition: opacity 1.5s ease-in;
+    text-shadow: 0 0 30px hsla(30, 60%, 50%, 0.3);
+  }
+
+  .mantra.visible {
+    opacity: 1;
   }
 
   #room {
     position: fixed;
     inset: 0;
+    opacity: 0;
+    transition: opacity 2.5s ease-in 0.5s;
   }
 
-  #room.hidden {
-    display: none;
+  #room.entering {
+    opacity: 1;
+  }
+
+  #atmosphere {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        ellipse 60% 70% at 50% 50%,
+        hsla(var(--atm-hue, 30), var(--atm-sat, 50%), calc(var(--atm-lit, 12%) + 8%), var(--atm-glow-opacity, 0.2)),
+        transparent
+      ),
+      radial-gradient(
+        ellipse 80% 90% at 50% 60%,
+        hsla(var(--atm-hue, 30), var(--atm-sat, 50%), var(--atm-lit, 12%), 0.15),
+        transparent
+      );
+    pointer-events: none;
+    z-index: 1;
   }
 
   #darshan {
@@ -57,12 +175,14 @@ import Base from '../layouts/Base.astro';
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 0;
   }
 
   #darshan-photo {
     max-width: 90vw;
     max-height: 90vh;
     object-fit: contain;
+    filter: brightness(0.85) saturate(1.1);
   }
 
   #particles {
