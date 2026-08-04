@@ -214,11 +214,14 @@ function resetSmoke(wisp: SmokeWisp, bounds: { w: number; h: number }) {
 }
 
 export function initParticles(canvas: HTMLCanvasElement) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+  renderer.setSize(w, h);
 
-  const aspect = canvas.clientWidth / canvas.clientHeight;
+  const aspect = w / h;
   const frustumHeight = 1;
   const camera = new THREE.OrthographicCamera(
     -frustumHeight * aspect / 2, frustumHeight * aspect / 2,
@@ -320,8 +323,10 @@ export function initParticles(canvas: HTMLCanvasElement) {
   animate();
 
   window.addEventListener('resize', () => {
-    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    const newAspect = canvas.clientWidth / canvas.clientHeight;
+    const rw = window.innerWidth;
+    const rh = window.innerHeight;
+    renderer.setSize(rw, rh);
+    const newAspect = rw / rh;
     camera.left = -frustumHeight * newAspect / 2;
     camera.right = frustumHeight * newAspect / 2;
     camera.updateProjectionMatrix();
