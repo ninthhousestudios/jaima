@@ -1,0 +1,74 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base>
+  <div id="threshold">
+    <div class="mantra-lines">
+      <p class="mantra ml" lang="ml">ഓം അമൃതേശ്വര്യൈ നമഃ</p>
+      <p class="mantra iast">oṃ amṛteśvaryai namaḥ</p>
+      <p class="mantra dev" lang="hi">ॐ अमृतेश्वर्यै नमः</p>
+    </div>
+  </div>
+  <div id="room" class="hidden">
+    <div id="darshan">
+      <img src="/images/photos/amma-devi1.png" alt="Amma in Devi Bhava" id="darshan-photo" />
+    </div>
+    <canvas id="particles"></canvas>
+  </div>
+</Base>
+
+<style>
+  #threshold {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: #0a0008;
+  }
+
+  .mantra-lines {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .mantra {
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    opacity: 0;
+    letter-spacing: 0.05em;
+    color: #d4a574;
+  }
+
+  #room {
+    position: fixed;
+    inset: 0;
+  }
+
+  #room.hidden {
+    display: none;
+  }
+
+  #darshan {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #darshan-photo {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+  }
+
+  #particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+</style>

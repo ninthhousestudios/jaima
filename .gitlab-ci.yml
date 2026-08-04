@@ -1,25 +1,38 @@
 default:
-  image: "hugomods/hugo:exts"
+  image: node:22-alpine
 
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-  THEME_URL: "github.com/hanwenguo/hugo-theme-nostyleplease.git"
-
-test:  # builds and tests your site
+install:
+  stage: .pre
   script:
-    - git submodule update --init --recursive
-    - hugo
+    - npm ci
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+
+test:
+  script:
+    - npm ci
+    - npm run build
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
   rules:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
 
-create-pages:  # a user-defined job that builds your pages and saves them to the specified path.
+create-pages:
   script:
-    - git submodule update --init --recursive
-    - hugo
-  pages: true  # specifies that this is a Pages job
+    - npm ci
+    - npm run build
+  pages: true
   artifacts:
     paths:
       - public
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   environment: production

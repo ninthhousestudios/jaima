@@ -1,6 +1,0 @@
-[submodule "themes/base"]
-	path = themes/base
-	url = https://github.com/zEttOn86/hugo_theme_windy.git
-[submodule "themes/nostyleplease"]
-	path = themes/nostyleplease
-	url = https://github.com/hanwenguo/hugo-theme-nostyleplease.git
