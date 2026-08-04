@@ -22,16 +22,38 @@ import Base from '../layouts/Base.astro';
 <script>
   import { initParticles } from '../components/particles';
   import { initLotusNav } from '../components/lotus-nav';
+  import { initPhotoMode } from '../components/photo-mode';
+  import { initJapaMode, destroyJapa } from '../components/japa-mode';
+  import { initGarlandMode } from '../components/garland-mode';
+  import { initTeachingsMode } from '../components/teachings-mode';
+  import { initSoundMode } from '../components/sound-mode';
   import type { Mode } from '../components/lotus-nav';
+
+  let modesInitialized = false;
+
+  function initModes() {
+    if (modesInitialized) return;
+    modesInitialized = true;
+    const room = document.getElementById('room')!;
+    const darshan = document.getElementById('darshan')!;
+    initPhotoMode(darshan);
+    initJapaMode(room);
+    initGarlandMode(room);
+    initTeachingsMode(room);
+    initSoundMode(room);
+  }
 
   function handleModeChange(mode: Mode | null) {
     document.querySelectorAll('.mode-overlay').forEach(el => {
       (el as HTMLElement).classList.remove('active');
     });
-    if (mode) {
-      const overlay = document.getElementById(`mode-${mode}`);
-      if (overlay) overlay.classList.add('active');
+    if (!mode) {
+      destroyJapa();
+      return;
     }
+    const overlay = document.getElementById(`mode-${mode}`);
+    if (overlay) overlay.classList.add('active');
+    if (mode !== 'japa') destroyJapa();
   }
 
   function initAtmosphere() {
@@ -91,6 +113,8 @@ import Base from '../layouts/Base.astro';
 
       const lotusContainer = document.getElementById('lotus-container')!;
       initLotusNav(lotusContainer, handleModeChange);
+
+      initModes();
     }
 
     mantras.forEach((el, i) => {
@@ -306,5 +330,313 @@ import Base from '../layouts/Base.astro';
   .lotus-glow.active {
     background: hsla(var(--glow-hue, 35), 50%, 50%, 0.08);
     box-shadow: 0 0 20px 8px hsla(var(--glow-hue, 35), 50%, 50%, 0.15);
+  }
+
+  /* Mode overlays — hidden by default */
+  .mode-overlay {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  .mode-overlay.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  /* Photo mode */
+  .photo-nav {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    pointer-events: none;
+  }
+
+  .photo-arrow {
+    pointer-events: auto;
+    background: hsla(0, 0%, 0%, 0.3);
+    border: 1px solid hsla(30, 40%, 60%, 0.3);
+    color: #e8d5c4;
+    font-size: 2.5rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+    line-height: 1;
+  }
+
+  .photo-arrow:hover {
+    background: hsla(0, 0%, 0%, 0.5);
+  }
+
+  .darshan-photo-transition {
+    position: absolute;
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    filter: brightness(0.85) saturate(1.1);
+    opacity: 0;
+    transition: opacity 1.5s ease;
+  }
+
+  .darshan-photo-transition.visible {
+    opacity: 1;
+  }
+
+  #darshan-photo {
+    transition: opacity 1.5s ease;
+  }
+
+  #darshan-photo.fading {
+    opacity: 0;
+  }
+
+  /* Japa mode */
+  .japa-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: hsla(0, 0%, 0%, 0.4);
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .japa-display {
+    text-align: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .japa-name {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    color: #f0d8b8;
+    text-shadow: 0 0 30px hsla(30, 60%, 50%, 0.4);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    letter-spacing: 0.03em;
+  }
+
+  .japa-name.visible {
+    opacity: 1;
+  }
+
+  .japa-counter {
+    margin-top: 1rem;
+    color: hsla(30, 30%, 60%, 0.6);
+    font-size: 0.85rem;
+  }
+
+  .japa-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 1.5rem;
+    cursor: default;
+    background: hsla(0, 0%, 0%, 0.3);
+  }
+
+  .japa-scripts {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .japa-script {
+    background: hsla(30, 20%, 30%, 0.5);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #d4b89a;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: background 0.3s ease;
+  }
+
+  .japa-script.active {
+    background: hsla(30, 40%, 40%, 0.7);
+    border-color: hsla(30, 50%, 60%, 0.5);
+    color: #f0d8b8;
+  }
+
+  .japa-playback {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .japa-stream-toggle,
+  .japa-advance {
+    background: hsla(30, 20%, 30%, 0.5);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #d4b89a;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: background 0.3s ease;
+  }
+
+  .japa-stream-toggle:hover,
+  .japa-advance:hover {
+    background: hsla(30, 30%, 38%, 0.6);
+  }
+
+  .japa-speed {
+    width: 80px;
+    accent-color: #d4a574;
+  }
+
+  /* Garland mode */
+  .garland-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .garland-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .garland-svg {
+    animation: garland-drape 2s ease-out forwards;
+  }
+
+  @keyframes garland-drape {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .garland-controls {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    display: flex;
+    gap: 0.5rem;
+    pointer-events: auto;
+    z-index: 20;
+  }
+
+  .garland-pick {
+    background: hsla(30, 20%, 30%, 0.6);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #d4b89a;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.3s ease;
+  }
+
+  .garland-pick.active {
+    background: hsla(30, 40%, 40%, 0.7);
+    border-color: hsla(30, 50%, 60%, 0.5);
+  }
+
+  .garland-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Teachings mode */
+  .teachings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    align-items: center;
+    justify-content: center;
+    background: hsla(0, 0%, 0%, 0.45);
+    cursor: pointer;
+  }
+
+  .teachings-display {
+    max-width: 600px;
+    padding: 3rem;
+    text-align: center;
+  }
+
+  .teachings-quote {
+    font-size: clamp(1.1rem, 3vw, 1.6rem);
+    color: #f0d8b8;
+    font-style: italic;
+    line-height: 1.6;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    text-shadow: 0 0 20px hsla(30, 50%, 50%, 0.2);
+    border: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .teachings-quote.visible {
+    opacity: 1;
+  }
+
+  .teachings-attr {
+    margin-top: 1.5rem;
+    color: hsla(30, 40%, 65%, 0.7);
+    font-size: 0.95rem;
+  }
+
+  /* Sound mode */
+  .sound-overlay {
+    position: fixed;
+    bottom: 6rem;
+    right: 2rem;
+    z-index: 40;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .sound-display {
+    background: hsla(0, 0%, 8%, 0.85);
+    border: 1px solid hsla(30, 40%, 50%, 0.2);
+    border-radius: 8px;
+    padding: 1.2rem;
+  }
+
+  .sound-placeholder {
+    color: hsla(30, 30%, 60%, 0.6);
+    font-size: 0.85rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .sound-tracks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .sound-track {
+    background: hsla(30, 20%, 30%, 0.4);
+    border: 1px solid hsla(30, 30%, 40%, 0.3);
+    color: hsla(30, 20%, 50%, 0.5);
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: not-allowed;
+    text-align: left;
   }
 </style>
