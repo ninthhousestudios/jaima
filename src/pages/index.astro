@@ -335,9 +335,22 @@ import Base from '../layouts/Base.astro';
     transition: fill 0.4s ease, filter 0.4s ease;
   }
 
-  .lotus-center:hover {
+  /* Transparent, forgiving toggle target. Sits above the closed petals so a
+     click near the middle always reaches the toggle instead of being eaten by
+     a petal stub. Open petals start at r=52, well clear of it. */
+  .lotus-hit {
+    fill: transparent;
+    cursor: pointer;
+  }
+
+  .lotus-svg:has(.lotus-hit:hover) .lotus-center {
     fill: hsla(340, 50%, 62%, 1);
     filter: drop-shadow(0 0 6px hsla(340, 50%, 60%, 0.5));
+  }
+
+  /* Closed petals are collapsed onto the centre; they must not take clicks. */
+  .lotus-nav:not(.open) .lotus-petal {
+    pointer-events: none;
   }
 
   .lotus-petal {

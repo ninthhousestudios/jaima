@@ -77,6 +77,7 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
           opacity="0"
         >${p.label}</text>`;
       }).join('')}
+      <circle cx="0" cy="0" r="30" class="lotus-hit" />
     </svg>
     <div class="lotus-glow"></div>
   `;
@@ -84,7 +85,7 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
   container.appendChild(wrapper);
 
   const svg = wrapper.querySelector('.lotus-svg')!;
-  const center = wrapper.querySelector('.lotus-center') as SVGCircleElement;
+  const hit = wrapper.querySelector('.lotus-hit') as SVGCircleElement;
   const petalEls = wrapper.querySelectorAll<SVGPathElement>('.lotus-petal');
   const labelEls = wrapper.querySelectorAll<SVGTextElement>('.lotus-label');
   const glow = wrapper.querySelector('.lotus-glow') as HTMLElement;
@@ -115,7 +116,7 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
     }
   }
 
-  center.addEventListener('click', (e) => {
+  hit.addEventListener('click', (e) => {
     e.stopPropagation();
     if (isOpen) {
       isOpen = false;
