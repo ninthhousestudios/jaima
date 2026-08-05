@@ -40,10 +40,56 @@ SAMPLES = 160
 TILT_DEG = 9.0
 ORTHO_MARGIN = 1.10
 
+# Angle of the first wick-bearing arm, measured from +x. 90 deg points straight
+# away from the camera, and five-fold symmetry has a mirror plane through each
+# arm, so this is the one orientation that reads symmetrically head-on: one
+# wick at the back, two at the sides, two at the front. Shared by the
+# nilavilakku's lotus lips and the arati lamp's arms so they look like a set.
+ARM_PHASE = 90.0
+
 
 # ---------------------------------------------------------------------------
 # Lathe
 # ---------------------------------------------------------------------------
+
+
+def make_object(name, verts, faces, smooth_angle=35.0):
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.validate()
+    mesh.update()
+
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.shade_auto_smooth(angle=math.radians(smooth_angle))
+    obj.select_set(False)
+    return obj
+
+
+def join_all(name, objs):
+    """Merge parts into one object.
+
+    Only for pieces that are not a single surface of revolution — the arati
+    lamp's arms are brazed onto a turned body, so the model is assembled the
+    way the object is. Everything downstream (bounds, material, framing)
+    assumes one mesh per asset.
+    """
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in objs:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    bpy.ops.object.join()
+
+    joined = bpy.context.view_layer.objects.active
+    joined.name = name
+    # Join keeps only the active object's modifiers, so the auto-smooth the
+    # parts each carried is gone for all but one. Re-apply across the whole.
+    bpy.ops.object.shade_auto_smooth(angle=math.radians(35))
+    joined.select_set(False)
+    return joined
 
 
 def revolve(name, profile, segments=128, lobes=None):
@@ -96,19 +142,72 @@ def revolve(name, profile, segments=128, lobes=None):
             elif kind_a == "ring" and kind_b == "ring":
                 faces.append((a + j, a + k, b + k, b + j))
 
-    mesh = bpy.data.meshes.new(name)
-    mesh.from_pydata(verts, [], faces)
-    mesh.validate()
-    mesh.update()
+    return make_object(name, verts, faces)
 
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
 
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-    bpy.ops.object.shade_auto_smooth(angle=math.radians(35))
-    obj.select_set(False)
-    return obj
+def sweep(name, path, radii, theta, sides=14, squash=0.42):
+    """Sweep a tube along a planar (radius, z) path standing at angle theta.
+
+    The cross-section is squashed across the path's own plane, so the result
+    reads as a flat bent bracket seen edge-on rather than a length of pipe —
+    which is what the arati lamp's arms are: cut and bent sheet brass.
+
+    The path is planar by construction, so the frame needs no parallel
+    transport: the out-of-plane axis is the horizontal tangent at theta, and
+    the in-plane normal falls out of the cross product with it.
+    """
+    ct, st = math.cos(theta), math.sin(theta)
+    ux, uy, uz = -st, ct, 0.0
+
+    verts, rings = [], []
+    n = len(path)
+    for i, (r, z) in enumerate(path):
+        r0, z0 = path[max(i - 1, 0)]
+        r1, z1 = path[min(i + 1, n - 1)]
+        dr, dz = r1 - r0, z1 - z0
+        length = math.hypot(dr, dz) or 1.0
+        dr, dz = dr / length, dz / length
+
+        # tangent, then in-plane normal = tangent x out-of-plane
+        tx, ty, tz = dr * ct, dr * st, dz
+        vx = ty * uz - tz * uy
+        vy = tz * ux - tx * uz
+        vz = tx * uy - ty * ux
+
+        cx, cy, cz = r * ct, r * st, z
+        rad = radii[i]
+        rings.append(len(verts))
+        for j in range(sides):
+            a = 2.0 * math.pi * j / sides
+            ca, sa = math.cos(a), math.sin(a)
+            verts.append(
+                (
+                    cx + rad * (ca * vx + squash * sa * ux),
+                    cy + rad * (ca * vy + squash * sa * uy),
+                    cz + rad * (ca * vz + squash * sa * uz),
+                )
+            )
+
+    faces = []
+    for i in range(len(rings) - 1):
+        a, b = rings[i], rings[i + 1]
+        for j in range(sides):
+            k = (j + 1) % sides
+            faces.append((a + j, a + k, b + k, b + j))
+
+    for end, ring in ((0, rings[0]), (-1, rings[-1])):
+        r, z = path[end]
+        centre = len(verts)
+        verts.append((r * ct, r * st, z))
+        for j in range(sides):
+            k = (j + 1) % sides
+            faces.append(
+                (centre, ring + k, ring + j)
+                if end == 0
+                else (centre, ring + j, ring + k)
+            )
+
+    return make_object(name, verts, faces)
 
 
 def bulb(points, r_neck, r_max, z0, height, steps=10):
@@ -117,6 +216,27 @@ def bulb(points, r_neck, r_max, z0, height, steps=10):
         t = i / steps
         r = r_neck + (r_max - r_neck) * math.sin(t * math.pi) ** 0.8
         points.append((r, z0 + height * t))
+
+
+def bezier(p0, p1, p2, p3, steps):
+    """Cubic Bezier in the (radius, z) plane, for profiles a lathe can't make.
+
+    The arati lamp's arms leave the stem heading outward and arrive at the cup
+    heading straight up. Two straight runs meeting at a corner read as bent
+    pipe; the control points let the turn happen as one continuous sweep.
+    """
+    out = []
+    for i in range(steps + 1):
+        t = i / steps
+        u = 1.0 - t
+        w = (u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t)
+        out.append(
+            tuple(
+                sum(w[k] * pt[axis] for k, pt in enumerate((p0, p1, p2, p3)))
+                for axis in (0, 1)
+            )
+        )
+    return out
 
 
 def collar(points, r_in, r_out, z0, height):
@@ -203,21 +323,19 @@ def build_nilavilakku():
     # 5-fold scallop across the rim, giving the lotus-petal lips in one
     # construction rather than modelling and arraying five separate spouts.
     #
-    # Phase 450 = 5 * 90, which puts a lip at theta = 90 deg (straight away
-    # from the camera). Five-fold symmetry has a mirror plane through each
-    # lip, so this is the one orientation that reads symmetrically head-on:
-    # one wick at the back, two at the sides, two at the front.
+    # The lobe phase is 5 * ARM_PHASE because cos(5*theta - phase) puts a crest
+    # wherever 5*theta == phase.
     obj = revolve(
         "nilavilakku",
         p,
         segments=192,
-        lobes=(5, 0.19, dish_z + 0.26, dish_z + 0.59, 450.0),
+        lobes=(5, 0.19, dish_z + 0.26, dish_z + 0.59, 5.0 * ARM_PHASE),
     )
 
     # A wick burns at the tip of each lip.
     flames = []
     for k in range(5):
-        theta = math.radians(90.0 + 72.0 * k)
+        theta = math.radians(ARM_PHASE + 72.0 * k)
         flames.append((1.14 * math.cos(theta), 1.14 * math.sin(theta), dish_z + 0.72))
     return obj, flames
 
@@ -298,11 +416,144 @@ def build_kalasha():
     return obj, []
 
 
+# The arati lamp's five arms stand at the same angles as the nilavilakku's five
+# lips (see ARM_PHASE), so head-on you read one cup at the back, two at the
+# sides and two at the front — the two lamps are the same lamp at two scales,
+# which is what makes them read as a set.
+#
+# Proportions are measured off docs/arati-lamp-1.jpg: the brass is very nearly
+# as tall as the dish is wide, and the cups reach just past the dish rim.
+ARATI_ARMS = 5
+ARATI_DISH_R = 1.25
+ARATI_ARM_R = 1.00
+ARATI_ARM_Z = 0.86
+ARATI_CUP_Z = 1.36
+
+
+def build_arati():
+    """Pancharati — the five-flame hand lamp waved before the deity.
+
+    The one piece here that is not a single lathe-turned object: a turned dish
+    and stem with five scrolled arms brazed on, each carrying a cup. So it is
+    a revolve, plus five arms and five pendant volutes swept as flat brackets,
+    plus five small revolved cups, joined into one mesh.
+
+    Built with no handle. The reference photos all show it gripped by the dish
+    rim itself, and a handle would give the lamp a front — the wrong property
+    for something that gets picked up and waved through an arc.
+    """
+    # --- dish: a broad shallow thali with a turned-up rim ---
+    # Nearly a flat cone rather than a bowl. A curved underside reads as a
+    # serving bowl the moment it is seen from below the rim, which is exactly
+    # the angle the camera tilt gives.
+    p = [
+        (0.00, 0.00),
+        (0.36, 0.00),
+        (0.40, 0.025),
+        (0.42, 0.05),
+    ]
+    for i in range(1, 13):  # underside, a shallow straight flare
+        t = i / 12
+        p.append((0.42 + 0.78 * t, 0.05 + 0.22 * t**1.15))
+    p.append((ARATI_DISH_R - 0.01, 0.33))  # rim kicks up
+    p.append((ARATI_DISH_R, 0.39))
+    p.append((ARATI_DISH_R - 0.04, 0.41))
+    for i in range(1, 13):  # inside, back down and in to the floor
+        t = i / 12
+        p.append(
+            (ARATI_DISH_R - 0.04 - 0.99 * t, 0.41 - 0.19 * math.sin(t * math.pi * 0.5))
+        )
+
+    # --- stem, then the needle spire above the arms ---
+    z = 0.22
+    collar(p, 0.22, 0.30, z, 0.06)
+    z += 0.06
+    bulb(p, 0.13, 0.24, z, 0.30)
+    z += 0.30
+    collar(p, 0.12, 0.19, z, 0.05)
+    z += 0.05
+    p.append((0.11, z + 0.09))
+    z += 0.09
+    bulb(p, 0.12, 0.21, z, 0.24)  # the knop the arms spring from
+    z += 0.24
+    collar(p, 0.10, 0.17, z, 0.05)
+    z += 0.05
+    bulb(p, 0.07, 0.12, z, 0.18)  # two small knops on the way up the needle
+    z += 0.18
+    collar(p, 0.06, 0.11, z, 0.05)
+    z += 0.05
+    for i in range(1, 17):  # needle
+        t = i / 16
+        p.append((0.075 * (1 - t) ** 1.7, z + 0.83 * t))
+    p.append((0.00, z + 0.86))
+
+    parts = [revolve("arati", p, segments=128)]
+
+    # --- arm: a scrolled bracket reaching out, then a riser up to the cup ---
+    steps = 26
+    arm = bezier(
+        (0.11, ARATI_ARM_Z + 0.06),  # leaves the knop heading out and down
+        (0.62, ARATI_ARM_Z - 0.30),
+        (ARATI_ARM_R + 0.02, ARATI_ARM_Z - 0.10),  # pulls the arrival vertical
+        (ARATI_ARM_R, ARATI_CUP_Z),
+        steps,
+    )
+    arm_r = [0.078 - 0.036 * (i / steps) for i in range(steps + 1)]
+
+    # The foliate scroll hanging under each arm. The real ones are pierced
+    # sheet; at the size this renders, a tapering spiral carries the same
+    # silhouette for a fraction of the geometry.
+    volute, volute_r = [], []
+    for i in range(13):
+        t = i / 12
+        a = math.radians(35 + 215 * t)
+        rad = 0.22 * (1.0 - 0.42 * t)
+        volute.append(
+            (0.60 + rad * math.cos(a), ARATI_ARM_Z - 0.20 + rad * math.sin(a))
+        )
+        volute_r.append(0.054 - 0.032 * t)
+
+    # --- cup: a shallow trumpet on a short foot ---
+    cup = [
+        (0.00, 0.00),
+        (0.055, 0.00),
+        (0.065, 0.02),
+        (0.05, 0.055),
+    ]
+    for i in range(1, 11):  # bell flare, convex — not a straight-sided funnel
+        t = i / 10
+        cup.append(
+            (0.05 + 0.185 * math.sin(t * math.pi * 0.5) ** 0.9, 0.055 + 0.15 * t)
+        )
+    cup.append((0.25, 0.225))
+    cup.append((0.245, 0.245))
+    for i in range(1, 9):
+        t = i / 8
+        cup.append((0.245 - 0.21 * t, 0.245 - 0.145 * t**0.75))
+
+    flames = []
+    for k in range(ARATI_ARMS):
+        theta = math.radians(ARM_PHASE + 360.0 / ARATI_ARMS * k)
+        parts.append(sweep(f"arati-arm{k}", arm, arm_r, theta, squash=0.34))
+        parts.append(sweep(f"arati-volute{k}", volute, volute_r, theta, squash=0.30))
+
+        x, y = ARATI_ARM_R * math.cos(theta), ARATI_ARM_R * math.sin(theta)
+        bowl = revolve(f"arati-cup{k}", cup, segments=64)
+        bowl.location = (x, y, ARATI_CUP_Z)
+        parts.append(bowl)
+
+        # The wick burns in the cup, just above its rim.
+        flames.append((x, y, ARATI_CUP_Z + 0.22))
+
+    return join_all("arati", parts), flames
+
+
 OBJECTS = {
     "nilavilakku": build_nilavilakku,
     "incense-holder": build_incense,
     "diya": build_diya,
     "kalasha": build_kalasha,
+    "arati": build_arati,
 }
 
 
@@ -494,6 +745,34 @@ def clear_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
+def report_projection(name, points, height, width, render_h, ortho_scale):
+    """Print where world points land in the render, as fractions of the PNG.
+
+    This is the number the web side needs and cannot compute: WICKS in
+    altar.ts, the diya's flame offset, the arati lamp's grip point. They used
+    to be re-derived by hand from this script's camera, which is exactly the
+    kind of coupling that goes stale silently. Re-render and the correct
+    values are in the log.
+
+    The camera is orthographic with screen right = +x and screen up
+    (0, sin TILT, cos TILT), aimed at (0, 0, height/2). Blender fits
+    ortho_scale to the longer resolution axis.
+    """
+    if width >= render_h:
+        ortho_w = ortho_scale
+        ortho_h = ortho_scale * render_h / width
+    else:
+        ortho_h = ortho_scale
+        ortho_w = ortho_scale * width / render_h
+
+    tilt = math.radians(TILT_DEG)
+    print(f"[altar-assets] {name}: projected fractions of the {width}x{render_h} PNG")
+    for label, (x, y, z) in points:
+        fx = 0.5 + x / ortho_w
+        fy = 0.5 - (y * math.sin(tilt) + (z - height * 0.5) * math.cos(tilt)) / ortho_h
+        print(f"[altar-assets]   {label:<14} x: {fx:.4f}  y: {fy:.4f}")
+
+
 def render_object(name, builder, out_dir):
     clear_scene()
     obj, flames = builder()
@@ -526,6 +805,12 @@ def render_object(name, builder, out_dir):
         render_h = RENDER_LONG_EDGE_3X
         width = max(64, round(RENDER_LONG_EDGE_3X * proj_w / proj_h))
         cam.data.ortho_scale = proj_h * ORTHO_MARGIN
+
+    # The grip: the centre of the dish's underside, which is where a hand
+    # holds a lamp and therefore what the arati wave has to rotate about.
+    landmarks = [(f"wick{i}", pt) for i, pt in enumerate(flames)]
+    landmarks.append(("grip", (0.0, 0.0, 0.0)))
+    report_projection(name, landmarks, height, width, render_h, cam.data.ortho_scale)
 
     out_path = os.path.join(out_dir, f"{name}@3x.png")
     configure_render(width, render_h, out_path)

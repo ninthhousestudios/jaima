@@ -11,7 +11,6 @@ const PHOTOS = [
   { src: '/images/photos/amma-krishna.jpg', alt: 'Amma as Krishna' },
   { src: '/images/photos/amma-puja.jpg', alt: 'Amma in puja' },
   { src: '/images/photos/amma-arriving.jpg', alt: 'Amma arriving' },
-  { src: '/images/photos/her-feet.jpg', alt: 'Padapuja' },
   { src: '/images/photos/her-feet2.jpg', alt: 'Padapuja' },
 ];
 
