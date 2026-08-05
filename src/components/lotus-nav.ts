@@ -29,6 +29,16 @@ const PETALS: PetalDef[] = [
 const KNOB_W = 64;
 const KNOB_H = KNOB_W / 1.4545;
 
+/**
+ * An open petal is a lens roughly 16 x 6 px on screen — about 3% of a normal
+ * touch target, which is why clicking a mode used to take several tries. Each
+ * petal carries an invisible circle of this radius instead, centred on the
+ * petal at PETAL_HIT_R_AT. Adjacent centres are 62 units apart, so at r=20
+ * they cannot overlap and steal each other's clicks.
+ */
+const PETAL_HIT_R = 20;
+const PETAL_HIT_R_AT = 62;
+
 function createPetalPath(angle: number, open: boolean): string {
   const r = open ? 52 : 0;
   const cx = Math.cos(angle) * r;
@@ -68,13 +78,15 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
       />
       ${PETALS.map((p, i) => {
         const angle = -Math.PI / 2 + (i * Math.PI * 2) / PETALS.length;
-        return `<path
+        return `<g
           class="lotus-petal${p.disabled ? ' disabled' : ''}"
           data-mode="${p.mode}"
           data-angle="${angle}"
           data-index="${i}"
-          d="${createPetalPath(angle, false)}"
-        />`;
+        >
+          <path class="lotus-blade" d="${createPetalPath(angle, false)}" />
+          <circle class="lotus-petal-hit" cx="0" cy="0" r="${PETAL_HIT_R}" />
+        </g>`;
       }).join('')}
       ${PETALS.map((p, i) => {
         const angle = -Math.PI / 2 + (i * Math.PI * 2) / PETALS.length;
@@ -99,15 +111,21 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
 
   const svg = wrapper.querySelector('.lotus-svg')!;
   const hit = wrapper.querySelector('.lotus-hit') as SVGCircleElement;
-  const petalEls = wrapper.querySelectorAll<SVGPathElement>('.lotus-petal');
+  const petalEls = wrapper.querySelectorAll<SVGGElement>('.lotus-petal');
   const labelEls = wrapper.querySelectorAll<SVGTextElement>('.lotus-label');
   const glow = wrapper.querySelector('.lotus-glow') as HTMLElement;
 
   function updatePetals(open: boolean) {
-    petalEls.forEach((el, i) => {
+    petalEls.forEach(el => {
       const angle = parseFloat(el.dataset.angle!);
-      const d = createPetalPath(angle, open);
-      el.setAttribute('d', d);
+      el.querySelector('.lotus-blade')!.setAttribute('d', createPetalPath(angle, open));
+
+      // The hit circle rides out with the petal. Closed it is parked on the
+      // centre, where the petals are inert anyway.
+      const at = open ? PETAL_HIT_R_AT : 0;
+      const hitEl = el.querySelector('.lotus-petal-hit')!;
+      hitEl.setAttribute('cx', String(Math.cos(angle) * at));
+      hitEl.setAttribute('cy', String(Math.sin(angle) * at));
     });
     labelEls.forEach(el => {
       el.setAttribute('opacity', open ? '1' : '0');
