@@ -14,6 +14,9 @@ const PHOTOS = [
   { src: '/images/photos/her-feet2.jpg', alt: 'Padapuja' },
 ];
 
+/** Must match the opacity transition on `#darshan > img` in index.astro. */
+const FADE_MS = 1500;
+
 let currentIndex = 0;
 let transitioning = false;
 
@@ -38,46 +41,46 @@ export function initPhotoMode(darshan: HTMLElement, navHost: HTMLElement) {
 
   let currentImg = darshan.querySelector('#darshan-photo') as HTMLImageElement;
 
-  function crossfade(newIndex: number) {
+  async function crossfade(newIndex: number) {
     if (transitioning || newIndex === currentIndex) return;
     transitioning = true;
 
     const newImg = document.createElement('img');
-    newImg.src = PHOTOS[newIndex].src;
-    newImg.alt = PHOTOS[newIndex].alt;
     newImg.id = 'darshan-photo';
+    newImg.alt = PHOTOS[newIndex].alt;
+    newImg.src = PHOTOS[newIndex].src;
     newImg.style.opacity = '0';
-    newImg.style.transition = 'opacity 1.5s ease';
+
+    // Decoded before it joins the document, so it is never laid out at its
+    // pre-load size. Decoding it after appending is what let the photo arrive
+    // and then settle. A broken src still has to advance rather than wedge
+    // the mode, so a rejection falls through to the fade.
+    try {
+      await newImg.decode();
+    } catch {
+      /* fall through */
+    }
+
     darshan.appendChild(newImg);
 
     const oldImg = currentImg;
-    oldImg.style.transition = 'opacity 1.5s ease';
+    currentImg = newImg;
+    currentIndex = newIndex;
 
-    newImg.decode().then(() => {
+    // Two frames: one for the browser to take up the appended element's
+    // starting opacity, the next to change it. Set both in the same frame as
+    // the append and there is no starting value to transition from.
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         newImg.style.opacity = '1';
         oldImg.style.opacity = '0';
-
-        setTimeout(() => {
-          oldImg.remove();
-          currentImg = newImg;
-          currentIndex = newIndex;
-          transitioning = false;
-        }, 1500);
-      });
-    }).catch(() => {
-      requestAnimationFrame(() => {
-        newImg.style.opacity = '1';
-        oldImg.style.opacity = '0';
-
-        setTimeout(() => {
-          oldImg.remove();
-          currentImg = newImg;
-          currentIndex = newIndex;
-          transitioning = false;
-        }, 1500);
       });
     });
+
+    window.setTimeout(() => {
+      oldImg.remove();
+      transitioning = false;
+    }, FADE_MS);
   }
 
   nav.querySelector('.photo-prev')!.addEventListener('click', () => {
