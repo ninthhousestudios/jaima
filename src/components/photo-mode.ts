@@ -22,7 +22,12 @@ export function getCurrentPhotoSrc(): string {
   return PHOTOS[currentIndex].src;
 }
 
-export function initPhotoMode(darshan: HTMLElement) {
+/**
+ * `navHost` is passed rather than derived from `darshan.parentElement`: the
+ * photo now lives inside the altar's frame aperture, which clips its
+ * children, and the arrows belong at the edges of the room.
+ */
+export function initPhotoMode(darshan: HTMLElement, navHost: HTMLElement) {
   const nav = document.createElement('div');
   nav.className = 'photo-nav mode-overlay';
   nav.id = 'mode-photo';
@@ -30,7 +35,7 @@ export function initPhotoMode(darshan: HTMLElement) {
     <button class="photo-arrow photo-prev" aria-label="Previous photo">‹</button>
     <button class="photo-arrow photo-next" aria-label="Next photo">›</button>
   `;
-  darshan.parentElement!.appendChild(nav);
+  navHost.appendChild(nav);
 
   let currentImg = darshan.querySelector('#darshan-photo') as HTMLImageElement;
 

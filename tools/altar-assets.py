@@ -45,10 +45,11 @@ def revolve(name, profile, segments=128, lobes=None):
 
     profile: [(radius, z)] ordered bottom to top. A radius of 0 at either end
              becomes a pole (single vertex) rather than a degenerate ring.
-    lobes:   optional (count, amplitude, z_start, z_end) to scallop the radius
-             by cos(count * theta), faded in across the z range. This is how
-             the lamp's lotus-petal oil dish is made — one construction rather
-             than modelling and arraying separate petals.
+    lobes:   optional (count, amplitude, z_start, z_end, phase_deg) to scallop
+             the radius by cos(count * theta - phase), faded in across the z
+             range. This is how the lamp's lotus-petal oil dish is made — one
+             construction rather than modelling and arraying separate petals.
+             The phase orients the lobes relative to the camera.
     """
     verts = []
     # ring_index[i] is either ('pole', vert) or ('ring', first_vert_index)
@@ -65,12 +66,14 @@ def revolve(name, profile, segments=128, lobes=None):
             theta = 2.0 * math.pi * j / segments
             r = radius
             if lobes:
-                count, amp, z0, z1 = lobes
+                count, amp, z0, z1, phase_deg = lobes
                 if z0 <= z <= z1:
                     blend = (z - z0) / max(z1 - z0, 1e-6)
                     # Ease in so the scallop grows out of the round bowl.
                     blend = blend * blend
-                    r *= 1.0 + amp * blend * math.cos(count * theta)
+                    r *= 1.0 + amp * blend * math.cos(
+                        count * theta - math.radians(phase_deg)
+                    )
             verts.append((r * math.cos(theta), r * math.sin(theta), z))
         rings.append(("ring", start))
 
@@ -193,17 +196,22 @@ def build_nilavilakku():
 
     # 5-fold scallop across the rim, giving the lotus-petal lips in one
     # construction rather than modelling and arraying five separate spouts.
+    #
+    # Phase 450 = 5 * 90, which puts a lip at theta = 90 deg (straight away
+    # from the camera). Five-fold symmetry has a mirror plane through each
+    # lip, so this is the one orientation that reads symmetrically head-on:
+    # one wick at the back, two at the sides, two at the front.
     obj = revolve(
         "nilavilakku",
         p,
         segments=192,
-        lobes=(5, 0.19, dish_z + 0.26, dish_z + 0.59),
+        lobes=(5, 0.19, dish_z + 0.26, dish_z + 0.59, 450.0),
     )
 
     # A wick burns at the tip of each lip.
     flames = []
     for k in range(5):
-        theta = 2.0 * math.pi * k / 5
+        theta = math.radians(90.0 + 72.0 * k)
         flames.append((1.14 * math.cos(theta), 1.14 * math.sin(theta), dish_z + 0.72))
     return obj, flames
 
@@ -254,7 +262,7 @@ def build_diya():
         p.append((0.82 * (1 - t), 0.46 - 0.26 * math.sin(t * math.pi * 0.5)))
 
     # A single lobe pulls one side of the rim out into the wick spout.
-    obj = revolve("diya", p, segments=128, lobes=(1, 0.30, 0.26, 0.48))
+    obj = revolve("diya", p, segments=128, lobes=(1, 0.30, 0.26, 0.48, 0.0))
     return obj, [(0.0, 0.0, 0.30)]
 
 

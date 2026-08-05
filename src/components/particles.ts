@@ -25,7 +25,7 @@ interface Bounds {
 }
 
 /** Normalised viewport coordinates (0..1, origin top-left). */
-interface Source {
+export interface Source {
   x: number;
   y: number;
 }
