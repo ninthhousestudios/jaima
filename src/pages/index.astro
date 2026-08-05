@@ -327,12 +327,12 @@ import Base from '../layouts/Base.astro';
     filter: drop-shadow(0 0 8px hsla(30, 60%, 50%, 0.3));
   }
 
+  /* A cut-out photograph, not a shape — fill and stroke do nothing here, so
+     every state it has is a filter. */
   .lotus-center {
-    fill: hsla(340, 40%, 55%, 0.9);
-    stroke: hsla(35, 50%, 70%, 0.6);
-    stroke-width: 1.5;
     cursor: pointer;
-    transition: fill 0.4s ease, filter 0.4s ease;
+    filter: drop-shadow(0 0 7px hsla(335, 55%, 45%, 0.45));
+    transition: filter 0.4s ease;
   }
 
   /* Transparent, forgiving toggle target. Sits above the closed petals so a
@@ -344,13 +344,15 @@ import Base from '../layouts/Base.astro';
   }
 
   .lotus-svg:has(.lotus-hit:hover) .lotus-center {
-    fill: hsla(340, 50%, 62%, 1);
-    filter: drop-shadow(0 0 6px hsla(340, 50%, 60%, 0.5));
+    filter: drop-shadow(0 0 12px hsla(335, 65%, 55%, 0.65)) brightness(1.1);
   }
 
-  /* Closed petals are collapsed onto the centre; they must not take clicks. */
+  /* Closed petals are collapsed onto the centre, where they would sit as
+     stubs on top of the flower. Hide them, and keep them from taking clicks
+     meant for the toggle underneath. */
   .lotus-nav:not(.open) .lotus-petal {
     pointer-events: none;
+    opacity: 0;
   }
 
   .lotus-petal {
@@ -359,6 +361,7 @@ import Base from '../layouts/Base.astro';
     stroke-width: 0.5;
     cursor: pointer;
     transition: d 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.4s ease,
                 fill 0.3s ease,
                 filter 0.3s ease;
   }

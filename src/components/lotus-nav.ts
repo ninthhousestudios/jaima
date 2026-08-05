@@ -21,6 +21,14 @@ const PETALS: PetalDef[] = [
   { mode: 'arati', label: 'Āratī', disabled: true },
 ];
 
+/**
+ * The centre knob, cut out of docs/lotus.jpg by tools/lotus-knob.py. Both
+ * numbers come from that script's output — the aspect ratio is printed, and
+ * squashing the flower is the failure mode if it goes stale.
+ */
+const KNOB_W = 64;
+const KNOB_H = KNOB_W / 1.4545;
+
 function createPetalPath(angle: number, open: boolean): string {
   const r = open ? 52 : 0;
   const cx = Math.cos(angle) * r;
@@ -52,7 +60,12 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
   wrapper.className = 'lotus-nav';
   wrapper.innerHTML = `
     <svg viewBox="-90 -90 180 180" class="lotus-svg">
-      <circle cx="0" cy="0" r="18" class="lotus-center" />
+      <image
+        class="lotus-center"
+        href="/images/lotus/lotus.png"
+        x="${-KNOB_W / 2}" y="${-KNOB_H / 2}"
+        width="${KNOB_W}" height="${KNOB_H}"
+      />
       ${PETALS.map((p, i) => {
         const angle = -Math.PI / 2 + (i * Math.PI * 2) / PETALS.length;
         return `<path
@@ -77,7 +90,7 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
           opacity="0"
         >${p.label}</text>`;
       }).join('')}
-      <circle cx="0" cy="0" r="30" class="lotus-hit" />
+      <circle cx="0" cy="0" r="${KNOB_W / 2}" class="lotus-hit" />
     </svg>
     <div class="lotus-glow"></div>
   `;
