@@ -288,13 +288,6 @@ import Base from '../layouts/Base.astro';
   #darshan {
     position: absolute;
     inset: 0;
-    /* Grid rather than flex so the outgoing and incoming photos of a
-       crossfade occupy the same cell instead of sitting side by side. The
-       single cell is stated explicitly: an implicit auto track is sized by
-       its contents, which during a crossfade means both photos at once. */
-    display: grid;
-    grid-template: 1fr / 1fr;
-    place-items: center;
     z-index: 0;
   }
 
@@ -540,14 +533,17 @@ import Base from '../layouts/Base.astro';
 
   /* Global, not scoped: photo-mode creates fresh <img> elements for each
      crossfade and those carry no scope attribute. */
-  /* The element box is the whole aperture, always — not the picture's own
-     size. object-fit does the letterboxing inside it, so the box never
-     depends on the photo's aspect ratio or on whether it has loaded yet, and
-     there is nothing left that can resize or recentre under the crossfade.
-     max-width/max-height sized the box to the picture, which is what used to
-     make some photos settle into place after fading in. */
+  /* Absolutely positioned, so the crossfading photos stack without any of
+     them being able to size the box the others live in. This was a grid, and
+     a grid cannot do that: `1fr` means `minmax(auto, 1fr)`, and that auto
+     floor stops the track shrinking below its content, so the row grew to
+     whichever photo was tallest and overflowed the aperture. The box top
+     stayed put while its height changed, which pushed the contained picture
+     down while two photos were present and let it rise when one was removed.
+     Out here the box is the aperture for every photo, loaded or not. */
   #darshan > img {
-    grid-area: 1 / 1;
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: contain;
