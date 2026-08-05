@@ -47,17 +47,22 @@ above every decoration and crush the value range of everything but the photo.
 ### Tuning it
 
 Layout is driven by custom properties at the top of `#altar` in `index.astro`
-(`--ledge-y`, `--ledge-w`, `--frame-y`, `--frame-h`, `--frame-w`, `--lamp-h`,
-`--lamp-x`, `--incense-f`). Flower placement is the `clusters` array in
-`altar.ts`. Petal speed is `FALL_TIME_MIN`/`MAX` in `particles.ts`. All of this
-is safe to change freely.
+(`--ledge-y`, `--ledge-w`, `--frame-y`, `--frame-h`, `--frame-w`, `--toran-y`,
+`--lamp-h`, `--lamp-x`, `--incense-x`). Flower placement is the `clusters`
+array in `altar.ts`. Petal speed is `FALL_TIME_MIN`/`MAX` in `particles.ts`.
+All of this is safe to change freely.
 
-One coupling is intentional: `--incense-f` places the two flanking incense
-sticks *and* cuts `--frame-w`, so the photo is exactly as wide as the span
-between them. Widening the photo means moving the sticks, and that is the
-correct behaviour — don't break it apart to size the frame on its own. The
-portrait media query overrides `--frame-w` directly and deliberately drops the
-coupling; on a phone that span is too narrow to be a photo.
+Three pieces are positioned independently and should stay that way: the ledge
+(`--ledge-y`) is a platform for offerings, the photo (`--frame-y`) hangs on the
+wall above it, and the garland (`--toran-y`) is strung higher still, near the
+ceiling. Only `--frame-h`/`--frame-w` are coupled, by the frame's 4:5 — height
+leads because vertical space is the scarce dimension.
+
+`.altar-toran svg` must keep `height: auto`. A fixed height letterboxes the
+garland inside its box, so `--toran-y` stops meaning where the garland is.
+
+**Landscape only.** The composition assumes a wide window. The portrait media
+query keeps it from falling apart, nothing more; don't spend effort there.
 
 Smoke rises from every `.altar-incense-tip`, round-robin over `SMOKE_COUNT`.
 Add a fourth stick and each column thins; raise `SMOKE_COUNT` in multiples of

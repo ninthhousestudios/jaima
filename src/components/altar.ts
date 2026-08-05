@@ -150,8 +150,7 @@ function buildOfferings(stage: HTMLElement): HTMLElement {
 
   // Incense: three holders, each with a stick and the point its smoke rises
   // from. The tall one is at centre; the flanking pair stand at --incense-x,
-  // which is also what the frame's width is measured from — moving them in CSS
-  // moves the photo's edges with them. Leans differ so they don't read as
+  // in front of the photo's lower corners. Leans differ so they don't read as
   // three copies of one object.
   const sticks: Array<['left' | 'centre' | 'right', number]> = [
     ['left', -3.5],

@@ -240,19 +240,23 @@ import Base from '../layouts/Base.astro';
     --ledge-inset: calc((100vw - var(--ledge-w)) / 2);
 
     /* Where the two flanking incense sticks stand, as a fraction of the ledge
-       in from each end — midway between the centre incense and the pots.
-       The frame is exactly as wide as the span between them, so this one
-       number places the sticks AND sizes the photo. Change it and both move
-       together, which is the point. */
-    --incense-f: 0.275;
-    --incense-x: calc(var(--incense-f) * 100%);
+       in from each end — midway between the centre incense and the pots. They
+       stand in front of the photo's lower corners and below its bottom edge,
+       which is where offerings belong. */
+    --incense-x: 27.5%;
 
-    /* Capped so the frame plus the toran above it still fit on a short,
-       wide window; on ordinary landscape the incense span wins. */
-    --frame-w: min(calc(var(--ledge-w) * (1 - 2 * var(--incense-f))), 56vh);
-    --frame-h: calc(var(--frame-w) * 1.25);
-    /* The photo hangs on the wall — its height is its own, not the ledge's. */
-    --frame-y: 15vh;
+    /* Vertical space is what limits the photo, so height leads and width
+       follows the frame's 4:5. The vw term only bites on a window too narrow
+       to hold that width at all. */
+    --frame-h: min(72vh, calc(92vw * 1.25));
+    --frame-w: calc(var(--frame-h) * 0.8);
+    /* The photo hangs on the wall — its height is its own, not the ledge's.
+       Equal air above and below: 14 + 72 + 14 = 100. */
+    --frame-y: 14vh;
+
+    /* The garland is strung high on the wall, near the ceiling. It is not
+       tied to the top of the frame; it hangs above it with a gap. */
+    --toran-y: 3vh;
 
     --lamp-h: 62vh;
     /* Distance of each lamp's centre line from its side of the viewport. */
@@ -260,15 +264,13 @@ import Base from '../layouts/Base.astro';
   }
 
   /* Portrait and narrow windows: there is no room to flank the photo, so the
-     lamps shrink back toward the edges and the ledge widens under them. */
+     lamps shrink back toward the edges and the ledge widens under them.
+     Best-effort only — the composition is built for landscape and is not
+     expected to hold up on a phone. */
   @media (max-aspect-ratio: 1/1) {
     #altar {
       --ledge-y: 5vh;
       --ledge-w: 86vw;
-      /* Deliberately breaks the incense-span coupling: on a phone that span
-         is only ~39vw and the photo has to be the thing you see. The sticks
-         end up under the frame's lower corners instead of beside them. */
-      --frame-w: min(74vw, 42vh);
       --frame-y: 11vh;
       --lamp-h: 40vh;
       --lamp-x: 9%;
@@ -515,17 +517,20 @@ import Base from '../layouts/Base.astro';
   .altar-toran {
     position: absolute;
     left: 50%;
-    bottom: calc(var(--frame-y) + var(--frame-h) - 2.6vh);
+    top: var(--toran-y);
     transform: translateX(-50%);
     width: calc(var(--frame-w) + 14vh);
-    height: 11vh;
     z-index: 6;
     filter: drop-shadow(0 0.5vh 0.7vh hsla(0, 0%, 0%, 0.6));
   }
 
+  /* Height left to the viewBox's own 1000:90. A fixed height letterboxes the
+     garland inside its box and buries --toran-y under dead space, which is
+     why the toran used to sit far lower than its number suggested. */
   .altar-toran svg {
+    display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
     overflow: visible;
   }
 
@@ -765,7 +770,7 @@ import Base from '../layouts/Base.astro';
   }
 
   /* Three sticks. The centre one is the tall one; the flanking pair stand at
-     --incense-x, the same measure the frame's width is cut from. */
+     --incense-x, in front of the photo's lower corners. */
   .altar-incense {
     height: var(--holder-h);
   }
