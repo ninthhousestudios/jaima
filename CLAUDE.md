@@ -28,6 +28,14 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `sound-mode.ts` — scaffold, no audio assets yet
   - `tab-mantra.ts` — random Lalita name in browser tab title on blur
 - `tools/altar-assets.py` — Blender script generating the brass altar furniture
+- `tools/lotus-knob.py` — cuts the nav's centre flower out of `docs/lotus.jpg`
+
+The lotus nav's centre is that cut-out, not a drawn shape, so it is styled
+with filters — `fill`/`stroke` do nothing to an `<image>`. Re-run the script
+and its printed aspect ratio goes into `KNOB_W`/`KNOB_H` in `lotus-nav.ts`;
+get it wrong and the flower squashes. Closed petals are `opacity: 0` and
+`pointer-events: none` — they collapse onto the centre, where they would
+otherwise sit as stubs on the flower and eat clicks meant for the toggle.
 
 ## The altar
 
