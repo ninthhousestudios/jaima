@@ -816,7 +816,42 @@ def render_object(name, builder, out_dir):
     configure_render(width, render_h, out_path)
     print(f"[altar-assets] {name}: {width}x{render_h} -> {out_path}")
     bpy.ops.render.render(write_still=True)
+    report_content_box(out_path)
     downscale(out_path, os.path.join(out_dir, f"{name}@2x.png"), 2 / 3)
+
+
+def report_content_box(src):
+    """Print how much of the PNG is transparent margin, as fractions.
+
+    ORTHO_MARGIN leaves clear space around every render, so an element sized
+    to the PNG floats above whatever it is meant to stand on. The web side
+    needs to know by how much — the arati lamp's `bottom` offset on its shelf
+    is exactly this number — and it cannot be derived from the camera, because
+    it depends on where the silhouette actually falls.
+    """
+    try:
+        out = subprocess.run(
+            ["magick", src, "-format", "%w %h %@", "info:"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as err:
+        print(f"[altar-assets] WARNING: could not measure {src}: {err}")
+        return
+
+    # "%@" is WxH+X+Y of the opaque bounding box.
+    w, h, box = out.split(" ", 2)
+    size, _, offset = box.partition("+")
+    bw, bh = (int(v) for v in size.split("x"))
+    bx, by = (int(v) for v in offset.split("+"))
+    w, h = int(w), int(h)
+
+    print(
+        f"[altar-assets]   content box    "
+        f"left: {bx / w:.4f}  right: {1 - (bx + bw) / w:.4f}  "
+        f"top: {by / h:.4f}  bottom: {1 - (by + bh) / h:.4f}"
+    )
 
 
 def downscale(src, dst, factor):

@@ -258,6 +258,14 @@ import Base from '../layouts/Base.astro';
        tied to the top of the frame; it hangs above it with a gap. */
     --toran-y: 3vh;
 
+    /* Bracket shelves carrying the arati lamps, in the strip of bare wall
+       between each nilavilakku and the frame. That strip is the narrowest
+       thing in the layout — at 4:3 it is only about 10vw — so widening the
+       lamps or the photo squeezes these first. */
+    --shelf-x: 23.5%;
+    --shelf-y: 44vh;
+    --arati-h: 8vh;
+
     --lamp-h: 62vh;
     /* Distance of each lamp's centre line from its side of the viewport. */
     --lamp-x: 12%;
@@ -608,10 +616,82 @@ import Base from '../layouts/Base.astro';
     transform: scaleX(-1);
   }
 
-  .altar-wicks {
+  .altar-wicks,
+  .arati-wicks {
     position: absolute;
     inset: 0;
     pointer-events: none;
+  }
+
+  /* --- shelves: a bracket on the wall, with an arati lamp standing on it --- */
+
+  .altar-shelf {
+    position: absolute;
+    bottom: var(--shelf-y);
+    width: calc(var(--arati-h) * 1.55);
+    height: 0;
+    transform: translateX(-50%);
+    z-index: 5;
+  }
+
+  .altar-shelf-left {
+    left: var(--shelf-x);
+  }
+
+  .altar-shelf-right {
+    left: calc(100% - var(--shelf-x));
+  }
+
+  /* Same timber as the ledge, so the room reads as one carpenter's work. */
+  .altar-shelf-slab {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 0.9vh;
+    border-radius: 0.25vh 0.25vh 0 0;
+    background: linear-gradient(180deg, hsl(38 48% 30%), hsl(32 42% 19%) 62%, hsl(26 38% 11%));
+    box-shadow:
+      0 -0.3vh 1.4vh hsla(30, 60%, 40%, 0.18),
+      0 0.4vh 1vh hsla(0, 0%, 0%, 0.6);
+  }
+
+  /* The bracket under it. A trapezoid via border widths — cheaper than an SVG
+     for a shape this small and it inherits no colour of its own. */
+  .altar-shelf-corbel {
+    position: absolute;
+    top: 0.9vh;
+    left: 50%;
+    width: 34%;
+    height: 1.6vh;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, hsl(30 40% 17%), hsl(24 34% 9%));
+    clip-path: polygon(0 0, 100% 0, 68% 100%, 32% 100%);
+  }
+
+  .arati-lamp {
+    position: absolute;
+    left: 50%;
+    /* Stands ON the slab. The render carries 9.54% of clear margin below the
+       dish (ORTHO_MARGIN), so the box has to sink by that much or the lamp
+       floats. altar-assets.py prints this as the content box on every render. */
+    bottom: calc(var(--arati-h) * -0.0954);
+    height: var(--arati-h);
+    /* The render is 1536x1310; the wick fractions in arati-lamp.ts land on the
+       actual cups only at that ratio. */
+    aspect-ratio: 1536 / 1310;
+    /* Turns about the grip — the centre of the dish's underside, where a hand
+       holds it. GRIP in arati-lamp.ts is the same number. */
+    transform-origin: 50% 88.24%;
+    transform: translateX(-50%) rotate(var(--wave-tilt, 0deg));
+    --flame-plumb: calc(-1 * var(--wave-tilt, 0deg));
+  }
+
+  .arati-lamp-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 0.6vh 0.9vh hsla(0, 0%, 0%, 0.6));
   }
 
   /* --- flames --- */
@@ -620,9 +700,19 @@ import Base from '../layouts/Base.astro';
     position: absolute;
     width: 1.5vh;
     height: 3.6vh;
-    transform: translate(-50%, -94%) scale(var(--flame-scale, 1));
+    /* --flame-plumb is how a waved lamp keeps its flames upright: the lamp
+       rotates, each flame rotates back by the same angle about its own wick.
+       Zero everywhere that does not move. */
+    transform: translate(-50%, -94%) rotate(var(--flame-plumb, 0deg))
+      scale(var(--flame-scale, 1));
     transform-origin: 50% 100%;
     pointer-events: none;
+  }
+
+  /* Small lamp, small flames. */
+  .arati-lamp .altar-flame {
+    width: 0.8vh;
+    height: 1.9vh;
   }
 
   .altar-flame-glow,

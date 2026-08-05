@@ -1,4 +1,6 @@
 import { marigold, rose, jasmine, petalScatter, thoranam } from './altar-flowers';
+import { buildAratiLamp } from './arati-lamp';
+import { el, flame } from './dom';
 import type { ParticleField, Source } from './particles';
 
 /**
@@ -51,17 +53,6 @@ export interface Altar {
   attachParticles(field: ParticleField): void;
 }
 
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className: string,
-  parent?: HTMLElement,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  node.className = className;
-  if (parent) parent.appendChild(node);
-  return node;
-}
-
 function svg(
   className: string,
   viewBox: string,
@@ -74,23 +65,6 @@ function svg(
     `<svg viewBox="${viewBox}" preserveAspectRatio="${preserve}" focusable="false"` +
     ` aria-hidden="true">${contents}</svg>`;
   return host;
-}
-
-/**
- * A flame is two stacked layers — a broad soft glow and a bright core — each
- * flickering on its own period. The periods are deliberately not multiples of
- * one another, so the pair never settles into a visible loop.
- */
-function flame(host: HTMLElement, scale: number, index: number): HTMLElement {
-  const wrap = el('div', 'altar-flame', host);
-  wrap.style.setProperty('--flame-scale', String(scale));
-  // Prime-ish offsets keep neighbouring wicks out of step with each other.
-  wrap.style.setProperty('--flicker-a', `${(1.7 + index * 0.23).toFixed(2)}s`);
-  wrap.style.setProperty('--flicker-b', `${(2.3 + index * 0.31).toFixed(2)}s`);
-  wrap.style.setProperty('--flicker-delay', `${(index * 0.37).toFixed(2)}s`);
-  el('div', 'altar-flame-glow', wrap);
-  el('div', 'altar-flame-core', wrap);
-  return wrap;
 }
 
 function buildLamp(stage: HTMLElement, side: 'left' | 'right'): HTMLElement {
@@ -112,6 +86,21 @@ function buildLamp(stage: HTMLElement, side: 'left' | 'right'): HTMLElement {
   });
 
   return lamp;
+}
+
+/**
+ * A bracket shelf on the wall with an arati lamp standing on it.
+ *
+ * They go in the strip of bare wall between each nilavilakku and the frame —
+ * the only place wide enough that does not crowd something. In arati mode the
+ * lamp lifts off the shelf, so the shelf is built as its own thing and the
+ * lamp merely stands on it: nothing about the lamp's position lives here.
+ */
+function buildShelf(stage: HTMLElement, side: 'left' | 'right', seed: number) {
+  const shelf = el('div', `altar-shelf altar-shelf-${side}`, stage);
+  el('div', 'altar-shelf-slab', shelf);
+  el('div', 'altar-shelf-corbel', shelf);
+  return buildAratiLamp(shelf, seed);
 }
 
 function buildOfferings(stage: HTMLElement): HTMLElement {
@@ -227,6 +216,8 @@ export function initAltar(host: HTMLElement, darshan: HTMLElement): Altar {
 
   buildLamp(stage, 'left');
   buildLamp(stage, 'right');
+  buildShelf(stage, 'left', 11);
+  buildShelf(stage, 'right', 17);
   const offerings = buildOfferings(stage);
 
   // Above every decoration, below the nav: the passes that make the layers
