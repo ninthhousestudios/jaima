@@ -327,57 +327,94 @@ import Base from '../layouts/Base.astro';
     filter: drop-shadow(0 0 8px hsla(30, 60%, 50%, 0.3));
   }
 
-  .lotus-center {
-    fill: hsla(340, 40%, 55%, 0.9);
-    stroke: hsla(35, 50%, 70%, 0.6);
-    stroke-width: 1.5;
-    cursor: pointer;
-    transition: fill 0.4s ease, filter 0.4s ease;
-  }
-
-  /* Transparent, forgiving toggle target. Sits above the closed petals so a
+  /* Transparent, forgiving toggle target, painted above the closed bud so a
      click near the middle always reaches the toggle instead of being eaten by
-     a petal stub. Open petals start at r=52, well clear of it. */
+     a petal. Its radius is driven from JS — see updatePetals. */
   .lotus-hit {
     fill: transparent;
     cursor: pointer;
   }
 
-  .lotus-svg:has(.lotus-hit:hover) .lotus-center {
-    fill: hsla(340, 50%, 62%, 1);
-    filter: drop-shadow(0 0 6px hsla(340, 50%, 60%, 0.5));
+  /* Petals pivot about the flower's centre. The viewBox is centred on the
+     origin, so 50% 50% of the view box IS user-space (0,0); change the viewBox
+     and this silently stops being true. */
+  .lotus-petal,
+  .lotus-petal-inner {
+    transform-box: view-box;
+    transform-origin: 50% 50%;
+    transition: transform 0.6s cubic-bezier(0.34, 1.4, 0.64, 1);
+    transition-delay: calc(var(--i, 0) * 0.035s);
   }
 
-  /* Closed petals are collapsed onto the centre; they must not take clicks. */
+  .lotus-petal { cursor: pointer; }
+  .lotus-petal-inner { pointer-events: none; }
+
+  /* Closed petals are foreshortened over the centre; they must not take
+     clicks, or they eat the ones meant for the toggle underneath. */
   .lotus-nav:not(.open) .lotus-petal {
     pointer-events: none;
   }
 
-  .lotus-petal {
-    fill: hsla(335, 45%, 65%, 0.85);
-    stroke: hsla(35, 60%, 75%, 0.4);
+  .lotus-blade {
+    fill: url(#lotus-outer);
+    stroke: hsla(35, 60%, 88%, 0.35);
+    stroke-width: 0.4;
+    transition: fill 0.35s ease, filter 0.35s ease;
+  }
+
+  .lotus-whorl-inner .lotus-blade {
+    fill: url(#lotus-inner);
+  }
+
+  .lotus-vein {
+    fill: none;
+    stroke: hsla(340, 40%, 45%, 0.28);
     stroke-width: 0.5;
-    cursor: pointer;
-    transition: d 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
-                fill 0.3s ease,
-                filter 0.3s ease;
+    stroke-linecap: round;
   }
 
-  .lotus-petal:hover:not(.disabled) {
-    fill: hsla(335, 55%, 72%, 1);
-    filter: drop-shadow(0 0 4px hsla(335, 50%, 65%, 0.5));
+  .lotus-petal:hover:not(.disabled) .lotus-blade {
+    filter: drop-shadow(0 0 5px hsla(340, 60%, 70%, 0.55)) brightness(1.08);
   }
 
-  .lotus-petal.active {
-    fill: hsla(40, 60%, 70%, 0.95);
-    stroke: hsla(40, 70%, 80%, 0.6);
+  .lotus-petal.active .lotus-blade {
+    fill: url(#lotus-active);
   }
 
-  .lotus-petal.disabled {
-    fill: hsla(335, 20%, 45%, 0.4);
-    stroke: hsla(35, 20%, 50%, 0.2);
-    cursor: default;
+  .lotus-petal.active .lotus-vein {
+    stroke: hsla(30, 45%, 35%, 0.3);
   }
+
+  .lotus-petal.disabled { cursor: default; }
+
+  .lotus-petal.disabled .lotus-blade {
+    filter: saturate(0.12) brightness(0.62);
+  }
+
+  /* The golden receptacle sits inside the bud, so the bloom reveals it. */
+  .lotus-heart {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s ease 0.12s;
+  }
+
+  .lotus-nav.open .lotus-heart { opacity: 1; }
+
+  .lotus-pod {
+    fill: hsl(68, 38%, 57%);
+    stroke: hsla(60, 35%, 32%, 0.6);
+    stroke-width: 0.6;
+  }
+
+  .lotus-seed { fill: hsla(75, 30%, 30%, 0.75); }
+
+  .lotus-stamen {
+    stroke: hsla(48, 75%, 72%, 0.85);
+    stroke-width: 0.7;
+    stroke-linecap: round;
+  }
+
+  .lotus-anther { fill: hsl(45, 80%, 78%); }
 
   .lotus-label {
     fill: #e8d5c4;
