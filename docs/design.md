@@ -23,9 +23,42 @@ Tap/click or wait a few seconds — text dissolves, room fades in behind it.
 
 The sanctum. One space that transforms based on the active mode.
 
-**Base state** (no mode selected): Devi bhava photo, nearly full-viewport,
-with ambient particle effects (flower petals, light motes drifting slowly).
-No text, no UI except the lotus nav bud. Pure darshan.
+**Base state** (no mode selected): the darshan photo on an altar, with ambient
+particle effects. No text, no UI except the lotus nav bud. Pure darshan.
+
+#### The altar
+
+The photo is matted inside a gilt frame standing on a ledge, flanked by two
+tall nilavilakku whose wicks burn, under a mango-leaf thoranam, with kalasha,
+diyas, a burning incense stick and flower offerings across the front. The
+whole viewport is filled.
+
+Density is not a contradiction of "the room is always dominant". Look at a real
+altar: it is crowded with lamps, garlands, vessels and cloth, and your eye still
+goes straight to the face — because everything else is dark and low contrast,
+not because the space is empty. So the rule is **dense in detail, quiet in
+contrast**. Two passes over the finished composition enforce it: a warm wash
+that puts every object under the same lamp light, and a vignette that drops the
+corners away. Without them the layers read as cut-outs on a background.
+
+A fixed frame means photos of different aspect ratios (the padapuja shots are
+landscape, the Devi bhava portraits are not) letterbox onto the deep red mat.
+That is deliberate, and it is what a real framer does — the alternative is
+either stretching the ornament or cropping every photo to portrait.
+
+**Brass furniture** is modelled and rendered in Blender rather than sourced as
+stock art, by `tools/altar-assets.py`. Each piece is a surface of revolution
+built from a profile curve, which is how the real objects are lathe-turned.
+Two reasons for rendering rather than downloading: licensing, and — the one
+that actually matters — a shared light rig. Three PNGs from three sources carry
+three different studio lightings and will never sit together on a dark altar.
+
+**Flames are live, never baked.** A baked loop reads as a loop. Each wick is two
+CSS layers running on deliberately unrelated periods, so it never settles.
+
+**Flowers are seeded procedural SVG.** A marigold is literally concentric rings
+of ruffled petals, which vectors describe well, and generated colour keeps them
+in the room's palette instead of importing a stock photo's white-studio light.
 
 **Atmosphere** runs at all times in the room:
 
@@ -34,9 +67,16 @@ No text, no UI except the lotus nav bud. Pure darshan.
 - **Time-awareness**: Tone shifts with local time of day. Dawn = softer gold.
   Midday = brighter. Evening = deeper warmth. Night = intimate, lamp-like.
   Driven by `new Date().getHours()` → CSS custom properties.
-- **Motion**: Slow particle field — flower petals, light motes, incense smoke. The constraint
-  is slowness: nothing moves faster than incense smoke. Three.js canvas
-  overlay or CSS animations.
+- **Motion**: Slow particle field — flower petals, incense smoke, embers. The
+  constraint is slowness: nothing moves faster than incense smoke. A petal
+  takes 26–46 seconds to cross the viewport; anything quicker pulls attention
+  outward. Three.js canvas overlay.
+
+  Petals are rose, marigold and jasmine, tumbling with a falling-leaf swing
+  coupled to their tilt, so they catch the light face-on at the extremes of the
+  arc and fall slower there. The smoke and embers are **sourced**: smoke rises
+  from the measured position of the incense tip and embers from the lamp
+  flames, re-measured on resize. Ambient smoke is fog; sourced smoke reads.
 
 ### Lotus nav
 
@@ -137,8 +177,12 @@ IAST/Devanagari/Malayalam). Runs on both threshold and room.
 
 - **Astro**: Static build, zero JS by default, component islands for
   interactivity. The room is a JS application within an Astro shell.
-- **Three.js**: Particle field (petals, light motes), garland physics (v2),
-  arati flame (v2). Loaded only in the room.
+- **Three.js**: Particle field (petals, smoke, embers), garland physics (v2),
+  arati flame (v2). Loaded only in the room. Deliberately *not* used for the
+  altar furniture: those objects never move, so paying a live 3D budget — env
+  maps for the brass, a perspective camera fighting the flat page layout — buys
+  nothing. The altar is a still life, rendered once and shipped as pixels.
+- **Blender**: Brass altar furniture, headless via `tools/altar-assets.py`.
 - **CSS**: Atmosphere engine — gradients, blend modes, transitions,
   time-of-day color shifting via custom properties.
 - **Vanilla JS**: Mode state management, lotus nav interaction, japa logic,
@@ -149,8 +193,9 @@ IAST/Devanagari/Malayalam). Runs on both threshold and room.
 ```
 Threshold         — entry animation, fires "enter" event
 Room              — main container, mode state machine
-  DarshanPhoto    — central image, crossfade transitions
-  ParticleField   — Three.js/Canvas 2D ambient effects
+  Altar           — frame, mat, ledge, lamps, offerings, light passes
+  DarshanPhoto    — central image inside the frame aperture, crossfades
+  ParticleField   — Three.js ambient effects, sourced from the altar
   LotusNav        — blooming nav, mode switching
   JapaStream      — mantra data, streaming/manual display
   GarlandOverlay  — SVG/image composite (v1), physics (v2)

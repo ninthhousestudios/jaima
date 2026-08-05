@@ -15,7 +15,9 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 - `src/pages/index.astro` — sole page; HTML structure, all CSS (scoped + global), script entry point
 - `src/layouts/Base.astro` — html shell, global reset
 - `src/components/` — vanilla TS modules, each owning one concern:
-  - `particles.ts` — Three.js canvas overlay (petals, light motes, incense smoke)
+  - `altar.ts` — the shrine the photo sits in: frame, mat, ledge, lamps, offerings
+  - `altar-flowers.ts` — seeded procedural SVG (marigold, rose, jasmine, thoranam)
+  - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
   - `lotus-nav.ts` — SVG bloom nav, mode state machine; exports `Mode` type
   - `photo-mode.ts` — photo cycling with crossfade
   - `japa-mode.ts` — Lalita Trishati streaming/manual, script toggle
@@ -23,11 +25,56 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `teachings-mode.ts` — Amma quotes
   - `sound-mode.ts` — scaffold, no audio assets yet
   - `tab-mantra.ts` — random Lalita name in browser tab title on blur
+- `tools/altar-assets.py` — Blender script generating the brass altar furniture
+
+## The altar
+
+The room's base state. The photo sits matted inside a gilt frame on a ledge,
+flanked by two nilavilakku with live flames, under a mango-leaf thoranam, with
+kalasha, diyas, an incense stick and flower offerings across the front.
+
+It is deliberately dense. That does not contradict "the room is always
+dominant" — real altars are visually busy and the eye still goes to the face,
+because everything around it is dark and low contrast, not because it is empty.
+`.altar-light` and `.altar-shade` are the passes that enforce this: they sit
+above every decoration and crush the value range of everything but the photo.
+**If you add something to the altar, it goes below those two layers.**
+
+### Tuning it
+
+Layout is driven by custom properties at the top of `#altar` in `index.astro`
+(`--ledge-y`, `--frame-h`, `--frame-w`, `--lamp-h`, `--lamp-x`, `--ledge-w`).
+Flower placement is the `clusters` array in `altar.ts`. Petal speed is
+`FALL_TIME_MIN`/`MAX` in `particles.ts`. All of this is safe to change freely.
+
+### Regenerating the brass — read this before touching the lamp
+
+    blender -b -P tools/altar-assets.py            # all four objects
+    blender -b -P tools/altar-assets.py -- --only nilavilakku
+
+Each object is a surface of revolution built from a profile curve, which is how
+the real pieces are lathe-turned. Everything is rendered under one shared light
+rig so the objects composite as a single altar; the convention (each piece lit
+as if the altar's centre is to its right, hence the left lamp is CSS-mirrored
+for the right) is in the script's module docstring.
+
+**These three sites hardcode numbers derived from the render camera and must be
+updated together if the lamp geometry, `TILT_DEG` or `ORTHO_MARGIN` change:**
+
+1. `WICKS` in `altar.ts` — the five flame positions on the lamp
+2. `aspect-ratio: 440 / 1536` on `.altar-lamp` in `index.astro`
+3. `.altar-diya .altar-flame { left: 89.3%; top: 43.7% }` in `index.astro`
+
+Nothing enforces this. Change the lamp's proportions and re-render, and the
+flames silently drift off the wicks — no error, it just looks wrong. "Make the
+lamp a bit wider" is not a one-line change.
 
 ## Key conventions
 
 - All mode overlays use class `mode-overlay` and id `mode-{name}`. The lotus nav toggles `.active` on them.
-- Photos live in `static/images/photos/`. Mantra data in `static/data/` (one name per line, 300 lines each).
+- Photos live in `static/images/photos/`, brass renders in `static/images/altar/` (`@2x`/`@3x`). Mantra data in `static/data/` (one name per line, 300 lines each).
+- `#altar` carries a `z-index`, which is what contains the altar's blend modes to the altar. Removing it makes them bleed through the page.
+- `photo-mode` builds fresh `<img>` elements per crossfade, so they carry no Astro scope attribute. Anything styling them (e.g. `#darshan > img`) must live in the `is:global` block.
 - `static/` is Astro's publicDir (copied verbatim to build output). `public/` is outDir (build artifact, gitignored).
 - CSS lives in `index.astro` — scoped styles for page structure, `is:global` block for component styles (lotus, modes).
 - No framework (React/Vue/etc). Components are plain TS that create and manage their own DOM.

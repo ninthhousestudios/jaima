@@ -15,6 +15,12 @@ LIGHTING CONVENTION — every object is lit as if the centre of the altar lies
 to its RIGHT. So a rendered lamp is placed on the LEFT of the composition, and
 the right-hand lamp is the same PNG mirrored in CSS: the flip puts its key
 light back on the inward side. Shadows therefore fall away from centre.
+
+DOWNSTREAM COUPLING — the web side hardcodes positions derived from this
+script's camera. Changing a profile, TILT_DEG or ORTHO_MARGIN silently
+invalidates them; the flames drift off the wicks with no error. The three
+sites and the re-derivation formula are documented at WICKS in
+src/components/altar.ts. Update them in the same commit as a re-render.
 """
 
 import argparse

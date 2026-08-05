@@ -21,6 +21,22 @@ import type { ParticleField, Source } from './particles';
  * theta = 90 + 72k degrees on a rim of radius 1.14, viewed through a 9-degree
  * downward tilt. The tilt is why the back wick reads highest and the two
  * front wicks lowest — and why they are scaled: further wicks are smaller.
+ *
+ * DERIVED FROM THE RENDER — three sites move together. If the lamp profile,
+ * TILT_DEG or ORTHO_MARGIN in tools/altar-assets.py change, all of these go
+ * stale at once:
+ *
+ *   1. WICKS, below
+ *   2. `aspect-ratio: 440 / 1536` on `.altar-lamp` in index.astro
+ *   3. `.altar-diya .altar-flame { left: 89.3%; top: 43.7% }` in index.astro
+ *
+ * Nothing enforces the relationship. A stale value throws no error; the flames
+ * simply drift off the wicks. Re-derive rather than eyeballing: the render is
+ * orthographic, so a point at world (x, y, z) lands at
+ *   fx = 0.5 + x / ortho_width
+ *   fy = 0.5 - (y * sin(TILT) + (z - height/2) * cos(TILT)) / ortho_height
+ * with ortho_height = ORTHO_MARGIN * projected height, and ortho_width scaled
+ * from it by the render's pixel aspect.
  */
 const WICKS = [
   { x: 0.5, y: 0.165, scale: 0.72 }, // back
