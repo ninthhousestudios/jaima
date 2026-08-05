@@ -22,7 +22,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
   - `lotus-nav.ts` — SVG bloom nav, mode state machine; exports `Mode` type
   - `photo-mode.ts` — photo cycling with crossfade
-  - `japa-mode.ts` — Lalita Trishati streaming/manual, script toggle
+  - `japa-mode.ts` — Lalita Trishati; two views, script toggle
   - `garland-mode.ts` — SVG garland overlay (v1)
   - `teachings-mode.ts` — Amma quotes
   - `sound-mode.ts` — scaffold, no audio assets yet
@@ -130,6 +130,22 @@ Embers currently source from `.altar-lamp .altar-flame` only — the two big
 lamps. The arati flames are deliberately excluded so five embers do not get
 spread across fifteen wicks. Widening that selector is the one-line change if
 v2 wants them.
+
+## Japa
+
+Two views over the same 300 names, both with play/pause and step forward/back.
+`crawl` (the default) climbs the whole list up the screen; `single` holds one
+name. The slider is a **speed**, 1–10, mapped per view — right is faster in
+both. Don't put a duration back in it.
+
+`--japa-line` must stay a fixed length. The crawl divides the scroll offset by
+it to know which name it is on, so a font-determined line height drifts the
+counter against the column. `--japa-tilt` and `--japa-perspective` are the
+crawl's geometry and are free to change.
+
+Nothing in the crawl can be measured while the overlay is `display: none` —
+every height reads 0. That is why `activateJapa()` exists and why
+`handleModeChange` calls it *after* setting `.active`.
 
 ## Key conventions
 
