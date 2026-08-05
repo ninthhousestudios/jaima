@@ -123,31 +123,6 @@ lamps. The arati flames are deliberately excluded so five embers do not get
 spread across fifteen wicks. Widening that selector is the one-line change if
 v2 wants them.
 
-## The lotus
-
-Two whorls of petals around a seed pod, all drawn in `lotus-nav.ts`. The outer
-six are the modes; the inner six are decoration, offset half a step to fill the
-outer ring's gaps. Shape knobs are the `OUTER`/`INNER` constants (`base` = where
-the petal springs from, `tip` = how far it reaches, `half` = half-width) and the
-curve in `petalPath`. Colour is three gradients in `<defs>`.
-
-It blooms by transforming a `<g>` per petal, not by morphing `d`. Closed, each
-petal is `scale(0.9, 0.4)` — a lotus closes by standing its petals upright, so
-from above they foreshorten along their axis and keep their width. The pod is
-hidden inside the bud (`.lotus-heart` opacity) and revealed by the bloom.
-
-Two things will break it silently:
-
-- **The viewBox must stay centred on the origin.** Petals pivot via
-  `transform-box: view-box` + `transform-origin: 50% 50%`, which is user-space
-  (0,0) only because the viewBox is `-90 -90 180 180`.
-- **`.lotus-hit` must stay clear of the petals.** It is the toggle target, and
-  it is painted on top. Closed it covers the whole bud (`HIT_CLOSED`); open it
-  shrinks inside the petal bases (`HIT_OPEN`) or it swallows their clicks.
-  Closed petals are also `pointer-events: none` for the same reason — a petal
-  that eats a click on the toggle is an intermittent dead button, not a
-  visible bug.
-
 ## Key conventions
 
 - All mode overlays use class `mode-overlay` and id `mode-{name}`. The lotus nav toggles `.active` on them.
