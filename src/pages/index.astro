@@ -27,7 +27,7 @@ import Base from '../layouts/Base.astro';
   import { initLotusNav } from '../components/lotus-nav';
   import { initTabMantra } from '../components/tab-mantra';
   import { initPhotoMode } from '../components/photo-mode';
-  import { initJapaMode, destroyJapa } from '../components/japa-mode';
+  import { initJapaMode, activateJapa, destroyJapa } from '../components/japa-mode';
   import { initGarlandMode } from '../components/garland-mode';
   import { initTeachingsMode } from '../components/teachings-mode';
   import { initSoundMode } from '../components/sound-mode';
@@ -51,13 +51,13 @@ import Base from '../layouts/Base.astro';
     document.querySelectorAll('.mode-overlay').forEach(el => {
       (el as HTMLElement).classList.remove('active');
     });
-    if (!mode) {
-      destroyJapa();
-      return;
-    }
+    if (mode !== 'japa') destroyJapa();
+    if (!mode) return;
     const overlay = document.getElementById(`mode-${mode}`);
     if (overlay) overlay.classList.add('active');
-    if (mode !== 'japa') destroyJapa();
+    // After .active, never before: the japa crawl measures its own line
+    // height, and everything in a display:none overlay measures 0.
+    if (mode === 'japa') activateJapa();
   }
 
   function initAtmosphere() {
@@ -1022,21 +1022,82 @@ import Base from '../layouts/Base.astro';
     inset: 0;
     z-index: 30;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     background: hsla(0, 0%, 0%, 0.4);
     pointer-events: auto;
-    cursor: pointer;
+
+    /* The crawl's geometry. Shallower tilt keeps the names readable; the
+       classic opening-crawl look is nearer 45deg. */
+    --japa-tilt: 24deg;
+    --japa-perspective: 460px;
+    /* Fixed, because the crawl converts between scroll offset and name index
+       by dividing by it. Let the font decide and the counter drifts. */
+    --japa-line: 2.9rem;
+  }
+
+  /* Tap-anywhere-to-advance is a single-view affordance. */
+  .japa-overlay.view-single { cursor: pointer; }
+  .japa-overlay.view-crawl .japa-display { display: none; }
+  .japa-overlay.view-single .japa-crawl { display: none; }
+
+  .japa-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
   }
 
   .japa-display {
+    position: absolute;
+    inset: 0;
     text-align: center;
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 2rem;
+  }
+
+  /* The crawl. The track is one tall column of names translated upward; the
+     stage tilts it away from the viewer and the mask dissolves it as it goes. */
+  .japa-crawl {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    perspective: var(--japa-perspective);
+    perspective-origin: 50% 0%;
+    -webkit-mask-image: linear-gradient(to top, #000 0 42%, transparent 94%);
+    mask-image: linear-gradient(to top, #000 0 42%, transparent 94%);
+  }
+
+  .japa-crawl-stage {
+    position: absolute;
+    inset: 0;
+    transform: rotateX(var(--japa-tilt));
+    transform-origin: 50% 100%;
+    transform-style: preserve-3d;
+  }
+
+  /* Starts below the stage, so the column rises into view rather than
+     appearing already full. */
+  .japa-crawl-track {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
+  .japa-crawl-name {
+    height: var(--japa-line);
+    line-height: var(--japa-line);
+    margin: 0;
+    text-align: center;
+    white-space: nowrap;
+    font-size: clamp(1rem, 2.4vw, 1.8rem);
+    color: #f0d8b8;
+    text-shadow: 0 0 24px hsla(30, 60%, 50%, 0.35);
+    letter-spacing: 0.03em;
   }
 
   .japa-name {
@@ -1053,7 +1114,8 @@ import Base from '../layouts/Base.astro';
   }
 
   .japa-counter {
-    margin-top: 1rem;
+    margin: 0 0 0.6rem;
+    text-align: center;
     color: hsla(30, 30%, 60%, 0.6);
     font-size: 0.85rem;
   }
@@ -1068,12 +1130,14 @@ import Base from '../layouts/Base.astro';
     background: hsla(0, 0%, 0%, 0.3);
   }
 
-  .japa-scripts {
+  .japa-scripts,
+  .japa-views {
     display: flex;
     gap: 0.5rem;
   }
 
-  .japa-script {
+  .japa-script,
+  .japa-view {
     background: hsla(30, 20%, 30%, 0.5);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #d4b89a;
@@ -1084,7 +1148,8 @@ import Base from '../layouts/Base.astro';
     transition: background 0.3s ease;
   }
 
-  .japa-script.active {
+  .japa-script.active,
+  .japa-view.active {
     background: hsla(30, 40%, 40%, 0.7);
     border-color: hsla(30, 50%, 60%, 0.5);
     color: #f0d8b8;
@@ -1096,7 +1161,8 @@ import Base from '../layouts/Base.astro';
     gap: 0.8rem;
   }
 
-  .japa-stream-toggle,
+  .japa-back,
+  .japa-play,
   .japa-advance {
     background: hsla(30, 20%, 30%, 0.5);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
@@ -1108,11 +1174,13 @@ import Base from '../layouts/Base.astro';
     transition: background 0.3s ease;
   }
 
-  .japa-stream-toggle:hover,
+  .japa-back:hover,
+  .japa-play:hover,
   .japa-advance:hover {
     background: hsla(30, 30%, 38%, 0.6);
   }
 
+  /* Left is slow, right is fast, in both views. */
   .japa-speed {
     width: 80px;
     accent-color: #d4a574;
