@@ -21,9 +21,13 @@ const SPEED_MAX = 10;
 /** `single`: how long a name is held, at the slowest and fastest settings. */
 const DWELL_SLOW_MS = 7000;
 const DWELL_FAST_MS = 900;
-/** `crawl`: how fast the column climbs, in CSS px per second. */
+/**
+ * `crawl`: how fast the column climbs, in CSS px per second. The top used to
+ * be 130, which put the midpoint at ~66 — already past reading speed, so the
+ * whole upper half of the slider was unusable. 66 is now the ceiling.
+ */
 const CRAWL_SLOW_PX = 14;
-const CRAWL_FAST_PX = 130;
+const CRAWL_FAST_PX = 66;
 
 /** Long enough for .japa-name to fade out before the text under it changes. */
 const SWAP_MS = 300;
