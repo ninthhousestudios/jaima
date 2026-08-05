@@ -15,7 +15,9 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 - `src/pages/index.astro` — sole page; HTML structure, all CSS (scoped + global), script entry point
 - `src/layouts/Base.astro` — html shell, global reset
 - `src/components/` — vanilla TS modules, each owning one concern:
-  - `altar.ts` — the shrine the photo sits in: frame, mat, ledge, lamps, offerings
+  - `altar.ts` — the shrine the photo sits in: frame, mat, ledge, lamps, shelves, offerings
+  - `arati-lamp.ts` — the pancharati hand lamp; built to be picked up and waved
+  - `dom.ts` — `el()` and `flame()`, shared by anything that builds brass
   - `altar-flowers.ts` — seeded procedural SVG (marigold, rose, jasmine, thoranam)
   - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
   - `lotus-nav.ts` — SVG bloom nav, mode state machine; exports `Mode` type
@@ -32,6 +34,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 The room's base state. The photo hangs matted inside a gilt frame on the wall,
 flanked by two nilavilakku with live flames, under a mango-leaf thoranam, above
 a low ledge carrying kalasha, diyas, three incense sticks and flower offerings.
+Two bracket shelves between the lamps and the frame carry the arati lamps.
 
 The photo does not rest on the ledge and is not positioned from it — the ledge
 is a platform for offerings, the frame is hung. `--ledge-y` and `--frame-y` are
@@ -68,27 +71,57 @@ Smoke rises from every `.altar-incense-tip`, round-robin over `SMOKE_COUNT`.
 Add a fourth stick and each column thins; raise `SMOKE_COUNT` in multiples of
 the stick count to keep the columns even.
 
-### Regenerating the brass — read this before touching the lamp
+### Regenerating the brass — read this before touching a lamp
 
-    blender -b -P tools/altar-assets.py            # all four objects
+    blender -b -P tools/altar-assets.py            # all five objects
     blender -b -P tools/altar-assets.py -- --only nilavilakku
 
-Each object is a surface of revolution built from a profile curve, which is how
-the real pieces are lathe-turned. Everything is rendered under one shared light
-rig so the objects composite as a single altar; the convention (each piece lit
-as if the altar's centre is to its right, hence the left lamp is CSS-mirrored
-for the right) is in the script's module docstring.
+Most objects are a surface of revolution built from a profile curve, which is
+how the real pieces are lathe-turned. The arati lamp is the exception: a turned
+body with five arms brazed on, so it also uses `sweep()` (a flattened tube
+along a planar path — bent sheet, not pipe) and `join_all()`. Everything is
+rendered under one shared light rig so the objects composite as a single altar;
+the convention (each piece lit as if the altar's centre is to its right, hence
+the left lamp is CSS-mirrored for the right) is in the script's module
+docstring. Five-fold pieces share `ARM_PHASE` so they read as a set.
 
-**These three sites hardcode numbers derived from the render camera and must be
-updated together if the lamp geometry, `TILT_DEG` or `ORTHO_MARGIN` change:**
+**The web side hardcodes numbers derived from these renders. Re-render and they
+go stale silently — the flames just drift off the wicks, no error.** Every
+render now *prints* the correct values, so read the log instead of re-deriving:
 
-1. `WICKS` in `altar.ts` — the five flame positions on the lamp
-2. `aspect-ratio: 440 / 1536` on `.altar-lamp` in `index.astro`
-3. `.altar-diya .altar-flame { left: 89.3%; top: 43.7% }` in `index.astro`
+| Printed as | Goes to |
+| --- | --- |
+| `wick0..4` | `WICKS` in `altar.ts`, `WICKS` in `arati-lamp.ts` |
+| `grip` | `transform-origin` on `.arati-lamp`, `GRIP` in `arati-lamp.ts` |
+| `content box` | `bottom` on `.arati-lamp` — the clear margin it must sink by |
+| the `WxH` line | `aspect-ratio` on `.altar-lamp` and `.arati-lamp` |
 
-Nothing enforces this. Change the lamp's proportions and re-render, and the
-flames silently drift off the wicks — no error, it just looks wrong. "Make the
-lamp a bit wider" is not a one-line change.
+Also derived, and not printed: `.altar-diya .altar-flame { left: 89.3%; top:
+43.7% }`. The reporter was checked against the nilavilakku's existing hand-
+derived `WICKS` and reproduces them to four places, so trust the log over
+arithmetic. "Make the lamp a bit wider" is still not a one-line change.
+
+### The arati lamps (and what v2 has to work with)
+
+Two pancharati stand on the bracket shelves, modelled from
+`docs/arati-lamp-*.jpg`. They are built by `arati-lamp.ts`, not `altar.ts`,
+because arati mode will build one too. The whole interface for waving one is
+already there and is deliberately small:
+
+- `--arati-h` sizes it, `--shelf-x`/`--shelf-y` place the shelf it stands on.
+- `setTilt(deg)` turns it about the **grip** — the dish underside, where a hand
+  holds it — not about the element's centre.
+- Each flame counter-rotates by `--flame-plumb` so it stays upright however far
+  the lamp leans. A flame leaning with the lamp is the single thing that gives
+  a waved sprite away. It defaults to `0deg`, so nothing static is affected.
+
+The lamp is modelled with **no handle**, on purpose: a handle would give it a
+front, which is wrong for something swung through an arc.
+
+Embers currently source from `.altar-lamp .altar-flame` only — the two big
+lamps. The arati flames are deliberately excluded so five embers do not get
+spread across fifteen wicks. Widening that selector is the one-line change if
+v2 wants them.
 
 ## Key conventions
 
