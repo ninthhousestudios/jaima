@@ -29,9 +29,13 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 
 ## The altar
 
-The room's base state. The photo sits matted inside a gilt frame on a ledge,
-flanked by two nilavilakku with live flames, under a mango-leaf thoranam, with
-kalasha, diyas, an incense stick and flower offerings across the front.
+The room's base state. The photo hangs matted inside a gilt frame on the wall,
+flanked by two nilavilakku with live flames, under a mango-leaf thoranam, above
+a low ledge carrying kalasha, diyas, three incense sticks and flower offerings.
+
+The photo does not rest on the ledge and is not positioned from it — the ledge
+is a platform for offerings, the frame is hung. `--ledge-y` and `--frame-y` are
+independent, and nothing should reintroduce a dependency between them.
 
 It is deliberately dense. That does not contradict "the room is always
 dominant" — real altars are visually busy and the eye still goes to the face,
@@ -43,9 +47,21 @@ above every decoration and crush the value range of everything but the photo.
 ### Tuning it
 
 Layout is driven by custom properties at the top of `#altar` in `index.astro`
-(`--ledge-y`, `--frame-h`, `--frame-w`, `--lamp-h`, `--lamp-x`, `--ledge-w`).
-Flower placement is the `clusters` array in `altar.ts`. Petal speed is
-`FALL_TIME_MIN`/`MAX` in `particles.ts`. All of this is safe to change freely.
+(`--ledge-y`, `--ledge-w`, `--frame-y`, `--frame-h`, `--frame-w`, `--lamp-h`,
+`--lamp-x`, `--incense-f`). Flower placement is the `clusters` array in
+`altar.ts`. Petal speed is `FALL_TIME_MIN`/`MAX` in `particles.ts`. All of this
+is safe to change freely.
+
+One coupling is intentional: `--incense-f` places the two flanking incense
+sticks *and* cuts `--frame-w`, so the photo is exactly as wide as the span
+between them. Widening the photo means moving the sticks, and that is the
+correct behaviour — don't break it apart to size the frame on its own. The
+portrait media query overrides `--frame-w` directly and deliberately drops the
+coupling; on a phone that span is too narrow to be a photo.
+
+Smoke rises from every `.altar-incense-tip`, round-robin over `SMOKE_COUNT`.
+Add a fourth stick and each column thins; raise `SMOKE_COUNT` in multiples of
+the stick count to keep the columns even.
 
 ### Regenerating the brass — read this before touching the lamp
 

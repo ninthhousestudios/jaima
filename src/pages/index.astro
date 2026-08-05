@@ -233,13 +233,26 @@ import Base from '../layouts/Base.astro';
     z-index: 2;
     overflow: hidden;
 
-    /* Height of the ledge surface above the bottom of the viewport. */
-    --ledge-y: 23vh;
-    --ledge-w: 66%;
-    --ledge-inset: calc((100% - var(--ledge-w)) / 2);
+    /* Height of the ledge surface above the bottom of the viewport. A low
+       platform: it carries the offerings, it does not carry the photo. */
+    --ledge-y: 6vh;
+    --ledge-w: 66vw;
+    --ledge-inset: calc((100vw - var(--ledge-w)) / 2);
 
-    --frame-h: 54vh;
-    --frame-w: min(calc(var(--frame-h) * 0.8), 78vw);
+    /* Where the two flanking incense sticks stand, as a fraction of the ledge
+       in from each end — midway between the centre incense and the pots.
+       The frame is exactly as wide as the span between them, so this one
+       number places the sticks AND sizes the photo. Change it and both move
+       together, which is the point. */
+    --incense-f: 0.275;
+    --incense-x: calc(var(--incense-f) * 100%);
+
+    /* Capped so the frame plus the toran above it still fit on a short,
+       wide window; on ordinary landscape the incense span wins. */
+    --frame-w: min(calc(var(--ledge-w) * (1 - 2 * var(--incense-f))), 56vh);
+    --frame-h: calc(var(--frame-w) * 1.25);
+    /* The photo hangs on the wall — its height is its own, not the ledge's. */
+    --frame-y: 15vh;
 
     --lamp-h: 62vh;
     /* Distance of each lamp's centre line from its side of the viewport. */
@@ -250,9 +263,13 @@ import Base from '../layouts/Base.astro';
      lamps shrink back toward the edges and the ledge widens under them. */
   @media (max-aspect-ratio: 1/1) {
     #altar {
-      --ledge-y: 19vh;
-      --ledge-w: 86%;
-      --frame-h: 46vh;
+      --ledge-y: 5vh;
+      --ledge-w: 86vw;
+      /* Deliberately breaks the incense-span coupling: on a phone that span
+         is only ~39vw and the photo has to be the thing you see. The sticks
+         end up under the frame's lower corners instead of beside them. */
+      --frame-w: min(74vw, 42vh);
+      --frame-y: 11vh;
       --lamp-h: 40vh;
       --lamp-x: 9%;
     }
@@ -435,7 +452,7 @@ import Base from '../layouts/Base.astro';
   .altar-frame {
     position: absolute;
     left: 50%;
-    bottom: calc(var(--ledge-y) - 1.2vh);
+    bottom: var(--frame-y);
     transform: translateX(-50%);
     width: var(--frame-w);
     height: var(--frame-h);
@@ -498,7 +515,7 @@ import Base from '../layouts/Base.astro';
   .altar-toran {
     position: absolute;
     left: 50%;
-    bottom: calc(var(--ledge-y) + var(--frame-h) - 2.6vh);
+    bottom: calc(var(--frame-y) + var(--frame-h) - 2.6vh);
     transform: translateX(-50%);
     width: calc(var(--frame-w) + 14vh);
     height: 11vh;
@@ -528,7 +545,7 @@ import Base from '../layouts/Base.astro';
     top: 0;
     left: -1.6%;
     right: -1.6%;
-    height: 2.6vh;
+    height: 1.8vh;
     border-radius: 0.4vh 0.4vh 0 0;
     background: linear-gradient(180deg, hsl(38 48% 32%), hsl(32 42% 21%) 60%, hsl(26 38% 13%));
     box-shadow:
@@ -538,7 +555,7 @@ import Base from '../layouts/Base.astro';
 
   .altar-ledge-cloth {
     position: absolute;
-    inset: 2.4vh 0 0 0;
+    inset: 1.6vh 0 0 0;
     background:
       repeating-linear-gradient(
         90deg,
@@ -670,7 +687,7 @@ import Base from '../layouts/Base.astro';
     position: absolute;
     left: var(--ledge-inset);
     width: var(--ledge-w);
-    bottom: calc(var(--ledge-y) - 1.6vh);
+    bottom: calc(var(--ledge-y) - 1.1vh);
     height: 12vh;
     z-index: 7;
     pointer-events: none;
@@ -747,9 +764,30 @@ import Base from '../layouts/Base.astro';
     left: 10.7%;
   }
 
+  /* Three sticks. The centre one is the tall one; the flanking pair stand at
+     --incense-x, the same measure the frame's width is cut from. */
   .altar-incense {
+    height: var(--holder-h);
+  }
+
+  .altar-incense-centre {
     left: 50%;
-    height: 2.6vh;
+    --holder-h: 2.6vh;
+    --stick-h: 4.6vh;
+  }
+
+  .altar-incense-left,
+  .altar-incense-right {
+    --holder-h: 2.1vh;
+    --stick-h: 3.7vh;
+  }
+
+  .altar-incense-left {
+    left: var(--incense-x);
+  }
+
+  .altar-incense-right {
+    left: calc(100% - var(--incense-x));
   }
 
   .altar-incense-stick {
@@ -757,19 +795,23 @@ import Base from '../layouts/Base.astro';
     left: 50%;
     bottom: 52%;
     width: 0.16vh;
-    height: 4.6vh;
-    transform: translateX(-50%) rotate(2.5deg);
+    height: var(--stick-h);
+    transform: translateX(-50%) rotate(var(--stick-lean, 2.5deg));
     transform-origin: 50% 100%;
     background: linear-gradient(180deg, hsl(22 32% 26%), hsl(28 34% 18%));
   }
 
+  /* Child of the stick rather than the holder, so the lean carries the ember
+     to wherever the tip actually ended up — no offset to keep in sync. */
   .altar-incense-tip {
     position: absolute;
-    left: 54%;
-    bottom: 228%;
+    left: 50%;
+    bottom: 100%;
+    margin-bottom: -0.16vh;
     width: 0.32vh;
     height: 0.32vh;
     border-radius: 50%;
+    transform: translateX(-50%);
     background: hsla(20, 100%, 62%, 0.95);
     box-shadow: 0 0 0.6vh 0.16vh hsla(18, 100%, 55%, 0.45);
   }

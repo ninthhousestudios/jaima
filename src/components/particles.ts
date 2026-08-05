@@ -12,7 +12,12 @@ import * as THREE from 'three';
  */
 
 const PETAL_COUNT = 22;
-const SMOKE_COUNT = 16;
+// Divided round-robin between the burning tips, so it is a per-column budget
+// as much as a total: three sticks at 27 is nine wisps a column. Deliberately
+// thinner per column than the single stick's 16 — three columns as dense as
+// that one was would be fog, and nothing here is allowed to out-shout the
+// photo. Raise it in multiples of the stick count.
+const SMOKE_COUNT = 27;
 const EMBER_COUNT = 5;
 
 /** Seconds for a petal to fall the full height of the viewport. */
@@ -265,9 +270,17 @@ interface Wisp {
   wanderAmp: number;
   spread: number;
   baseSize: number;
+  /** Which burning tip this wisp belongs to; wrapped, so the count of tips
+      can change under it without leaving wisps orphaned mid-rise. */
+  source: number;
 }
 
-function resetWisp(wisp: Wisp, source: THREE.Vector2, stagger: boolean) {
+function wispSource(wisp: Wisp, sources: THREE.Vector2[]): THREE.Vector2 {
+  return sources[wisp.source % sources.length];
+}
+
+function resetWisp(wisp: Wisp, sources: THREE.Vector2[], stagger: boolean) {
+  const source = wispSource(wisp, sources);
   wisp.life = stagger ? Math.random() * wisp.maxLife : 0;
   wisp.maxLife = 14 + Math.random() * 10;
   wisp.rise = 0.016 + Math.random() * 0.012;
@@ -284,7 +297,12 @@ function resetWisp(wisp: Wisp, source: THREE.Vector2, stagger: boolean) {
   wisp.mesh.rotation.z = Math.random() * Math.PI * 2;
 }
 
-function createWisp(scene: THREE.Scene, texture: THREE.Texture, source: THREE.Vector2): Wisp {
+function createWisp(
+  scene: THREE.Scene,
+  texture: THREE.Texture,
+  sources: THREE.Vector2[],
+  source: number,
+): Wisp {
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     color: 0xd8cbbc,
@@ -306,8 +324,9 @@ function createWisp(scene: THREE.Scene, texture: THREE.Texture, source: THREE.Ve
     wanderAmp: 0,
     spread: 0,
     baseSize: 0,
+    source,
   };
-  resetWisp(wisp, source, true);
+  resetWisp(wisp, sources, true);
   return wisp;
 }
 
@@ -376,8 +395,8 @@ function createEmber(scene: THREE.Scene, texture: THREE.Texture, sources: THREE.
 // ---------------------------------------------------------------------------
 
 export interface ParticleField {
-  /** Move the incense column to a point on the altar. */
-  setIncenseSource(source: Source): void;
+  /** Anchor the smoke columns to the burning tips on the altar. */
+  setIncenseSources(sources: Source[]): void;
   /** Tether the embers to the lamp flames. */
   setEmberSources(sources: Source[]): void;
 }
@@ -408,7 +427,7 @@ export function initParticles(canvas: HTMLCanvasElement): ParticleField {
   }
 
   // Placeholders until the altar reports where the incense and lamps sit.
-  const incenseSource = new THREE.Vector2(0, -bounds.h * 0.34);
+  const incenseSources: THREE.Vector2[] = [new THREE.Vector2(0, -bounds.h * 0.34)];
   const emberSources: THREE.Vector2[] = [];
 
   const kinds = petalKinds();
@@ -421,7 +440,7 @@ export function initParticles(canvas: HTMLCanvasElement): ParticleField {
 
   const wisps: Wisp[] = [];
   for (let i = 0; i < SMOKE_COUNT; i++) {
-    wisps.push(createWisp(scene, disc, incenseSource));
+    wisps.push(createWisp(scene, disc, incenseSources, i));
   }
 
   const embers: Ember[] = [];
@@ -468,7 +487,7 @@ export function initParticles(canvas: HTMLCanvasElement): ParticleField {
     for (const wisp of wisps) {
       wisp.life += dt;
       if (wisp.life >= wisp.maxLife) {
-        resetWisp(wisp, incenseSource, false);
+        resetWisp(wisp, incenseSources, false);
         continue;
       }
 
@@ -481,7 +500,8 @@ export function initParticles(canvas: HTMLCanvasElement): ParticleField {
         Math.sin(wisp.life * 0.17 + wisp.wanderPhaseB) * 0.4;
 
       wisp.mesh.position.y += wisp.rise * dt;
-      wisp.mesh.position.x = incenseSource.x + wander * wisp.wanderAmp * turbulence;
+      wisp.mesh.position.x =
+        wispSource(wisp, incenseSources).x + wander * wisp.wanderAmp * turbulence;
       wisp.mesh.rotation.z += 0.06 * dt;
 
       const size = wisp.baseSize * (1 + t * wisp.spread * 6);
@@ -538,11 +558,21 @@ export function initParticles(canvas: HTMLCanvasElement): ParticleField {
   });
 
   // Remembered so they survive a resize, which changes the world mapping.
-  let incenseNorm: Source | null = null;
+  let incenseNorm: Source[] = [];
   let emberNorm: Source[] = [];
 
+  /** Refill in place: the wisps hold indices into these arrays, not the
+      arrays themselves, but a source count of zero would leave them adrift. */
+  function project(norm: Source[], into: THREE.Vector2[]) {
+    if (norm.length === 0) return;
+    into.length = 0;
+    for (const s of norm) {
+      into.push(toWorld(s, new THREE.Vector2()));
+    }
+  }
+
   function reproject() {
-    if (incenseNorm) toWorld(incenseNorm, incenseSource);
+    project(incenseNorm, incenseSources);
     emberSources.length = 0;
     for (const s of emberNorm) {
       emberSources.push(toWorld(s, new THREE.Vector2()));
@@ -552,9 +582,9 @@ export function initParticles(canvas: HTMLCanvasElement): ParticleField {
   window.addEventListener('resize', reproject);
 
   return {
-    setIncenseSource(source: Source) {
-      incenseNorm = source;
-      toWorld(source, incenseSource);
+    setIncenseSources(sources: Source[]) {
+      incenseNorm = sources;
+      project(incenseNorm, incenseSources);
     },
     setEmberSources(sources: Source[]) {
       emberNorm = sources;

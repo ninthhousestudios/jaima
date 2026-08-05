@@ -148,16 +148,28 @@ function buildOfferings(stage: HTMLElement): HTMLElement {
     f.classList.add('altar-flame-diya');
   }
 
-  // Incense: the holder, the stick, and the point the smoke rises from.
-  const incense = el('div', 'altar-incense', offerings);
-  const img = document.createElement('img');
-  img.src = '/images/altar/incense-holder@2x.png';
-  img.alt = '';
-  incense.appendChild(img);
-  el('div', 'altar-incense-stick', incense);
-  // Marks the burning tip. Its only job at runtime is to be measured, so the
-  // smoke column starts exactly where the stick ends.
-  el('div', 'altar-incense-tip', incense);
+  // Incense: three holders, each with a stick and the point its smoke rises
+  // from. The tall one is at centre; the flanking pair stand at --incense-x,
+  // which is also what the frame's width is measured from — moving them in CSS
+  // moves the photo's edges with them. Leans differ so they don't read as
+  // three copies of one object.
+  const sticks: Array<['left' | 'centre' | 'right', number]> = [
+    ['left', -3.5],
+    ['centre', 2.5],
+    ['right', 4],
+  ];
+  for (const [place, lean] of sticks) {
+    const incense = el('div', `altar-incense altar-incense-${place}`, offerings);
+    const img = document.createElement('img');
+    img.src = '/images/altar/incense-holder@2x.png';
+    img.alt = '';
+    incense.appendChild(img);
+    const stick = el('div', 'altar-incense-stick', incense);
+    stick.style.setProperty('--stick-lean', `${lean}deg`);
+    // Marks the burning tip. Its only job at runtime is to be measured, so a
+    // smoke column starts exactly where the stick ends.
+    el('div', 'altar-incense-tip', stick);
+  }
 
   // Flower clusters on the ledge. Odd numbers and uneven spacing — a row of
   // evenly spaced flowers reads as a UI element rather than an offering.
@@ -235,8 +247,8 @@ export function initAltar(host: HTMLElement, darshan: HTMLElement): Altar {
 
   function report() {
     if (!field) return;
-    const tipNode = offerings.querySelector('.altar-incense-tip');
-    if (tipNode) field.setIncenseSource(normalised(tipNode));
+    const tips = offerings.querySelectorAll('.altar-incense-tip');
+    field.setIncenseSources(Array.from(tips, normalised));
 
     const flames = stage.querySelectorAll('.altar-lamp .altar-flame');
     field.setEmberSources(Array.from(flames, normalised));
