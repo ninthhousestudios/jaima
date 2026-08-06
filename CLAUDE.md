@@ -235,6 +235,29 @@ No bhajans. The recordings belong to the Math and the CC tags on archive.org
 copies are uploader-applied, so there is nothing freely shippable. Amma's arati
 is a separate question and may end up an embedded player.
 
+## Fonts
+
+`static/fonts/` carries Noto Sans Devanagari and Noto Sans Malayalam as woff2
+subsets (OFL, 74 kB together), declared in `Base.astro` with a `unicode-range`
+so they claim only their own scripts and Latin/IAST still resolves to
+`system-ui`. **Don't widen those ranges** — the subsets have almost no Latin,
+so a range that catches ASCII would put the whole interface in tofu.
+
+Nearly every word on this site is Devanagari or Malayalam, and leaving that to
+the visitor's system does not work: fontconfig here ranked FreeSans first for
+both, and FreeSans carries the glyphs without the lookups. It applies the reph
+(ra *before* a consonant) and nothing at all for the rakar (ra *after* one) —
+`ब्र` shaped to three glyphs from three codepoints. Noto has `rkrf` and `pref`,
+which are the substitutions that were missing.
+
+Pango shapes from the same fontconfig the browser uses, so glyph counts are
+measurable without a screenshot:
+
+```python
+layout.set_font_description(Pango.FontDescription('Noto Sans Devanagari 32'))
+layout.set_text('ब्र', -1)      # 3 codepoints -> 1 glyph shaped, 3 unshaped
+```
+
 ## Key conventions
 
 - All mode overlays use class `mode-overlay` and id `mode-{name}`. The lotus nav toggles `.active` on them.

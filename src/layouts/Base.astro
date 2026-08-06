@@ -19,6 +19,32 @@ const { title = 'ജയ്മാ' } = Astro.props;
 </html>
 
 <style is:global>
+  /* Almost every word on this site is Devanagari or Malayalam, and neither is
+     safe to leave to the visitor's system. Here fontconfig ranked FreeSans
+     first for both, which carries the glyphs but not the lookups: it applies
+     the reph (ra before a consonant) and does nothing at all for the rakar (ra
+     after one), so ब्र came out as three separate glyphs from three
+     codepoints. These two subsets carry `rkrf` and `pref` respectively, which
+     are the substitutions that were missing.
+
+     The unicode-range is what keeps them out of the way: Latin and IAST still
+     resolve to system-ui, so only the scripts that need them pay for them. */
+  @font-face {
+    font-family: 'Noto Sans Devanagari';
+    src: url('/fonts/noto-sans-devanagari.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+    unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF;
+  }
+
+  @font-face {
+    font-family: 'Noto Sans Malayalam';
+    src: url('/fonts/noto-sans-malayalam.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+    unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+25CC, U+A830-A832;
+  }
+
   * {
     margin: 0;
     padding: 0;
@@ -31,6 +57,7 @@ const { title = 'ജയ്മാ' } = Astro.props;
     overflow: hidden;
     background: #1a0a1a;
     color: #e8d5c4;
-    font-family: system-ui, -apple-system, sans-serif;
+    /* The two Indic families lead, but only ever claim their own ranges. */
+    font-family: 'Noto Sans Devanagari', 'Noto Sans Malayalam', system-ui, -apple-system, sans-serif;
   }
 </style>
