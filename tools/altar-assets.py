@@ -26,19 +26,33 @@ src/components/altar.ts. Update them in the same commit as a re-render.
 import argparse
 import math
 import os
-import subprocess
 import sys
 
 import bpy
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from blender_common import (  # noqa: E402
+    ORTHO_MARGIN,
+    TILT_DEG,
+    add_area,
+    build_camera,
+    build_world,
+    clear_scene,
+    configure_render,
+    downscale,
+    ensure_dir,
+    join_all,
+    make_object,
+    report_content_box,
+    report_projection,
+)
+
+TAG = "altar-assets"
+
 # Height of the longest edge of each render, in pixels, at 3x.
 RENDER_LONG_EDGE_3X = 1536
 SAMPLES = 160
-
-# Degrees the camera looks down. Enough to open up bowls and rims, little
-# enough that the object still sits flat against a 2D page layout.
-TILT_DEG = 9.0
-ORTHO_MARGIN = 1.10
 
 # Angle of the first wick-bearing arm, measured from +x. 90 deg points straight
 # away from the camera, and five-fold symmetry has a mirror plane through each
@@ -51,45 +65,6 @@ ARM_PHASE = 90.0
 # ---------------------------------------------------------------------------
 # Lathe
 # ---------------------------------------------------------------------------
-
-
-def make_object(name, verts, faces, smooth_angle=35.0):
-    mesh = bpy.data.meshes.new(name)
-    mesh.from_pydata(verts, [], faces)
-    mesh.validate()
-    mesh.update()
-
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
-
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-    bpy.ops.object.shade_auto_smooth(angle=math.radians(smooth_angle))
-    obj.select_set(False)
-    return obj
-
-
-def join_all(name, objs):
-    """Merge parts into one object.
-
-    Only for pieces that are not a single surface of revolution — the arati
-    lamp's arms are brazed onto a turned body, so the model is assembled the
-    way the object is. Everything downstream (bounds, material, framing)
-    assumes one mesh per asset.
-    """
-    bpy.ops.object.select_all(action="DESELECT")
-    for obj in objs:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]
-    bpy.ops.object.join()
-
-    joined = bpy.context.view_layer.objects.active
-    joined.name = name
-    # Join keeps only the active object's modifiers, so the auto-smooth the
-    # parts each carried is gone for all but one. Re-apply across the whole.
-    bpy.ops.object.shade_auto_smooth(angle=math.radians(35))
-    joined.select_set(False)
-    return joined
 
 
 def revolve(name, profile, segments=128, lobes=None):
@@ -591,50 +566,6 @@ def brass_material():
     return mat
 
 
-def build_world():
-    """A dark warm gradient. Metal is pure reflection — with a black world the
-    brass would render black. This is the shrine interior it reflects."""
-    world = bpy.data.worlds.new("shrine")
-    bpy.context.scene.world = world
-    world.use_nodes = True
-    nodes, links = world.node_tree.nodes, world.node_tree.links
-    nodes.clear()
-
-    out = nodes.new("ShaderNodeOutputWorld")
-    bg = nodes.new("ShaderNodeBackground")
-    bg.inputs["Strength"].default_value = 1.0
-
-    tex = nodes.new("ShaderNodeTexGradient")
-    tex.gradient_type = "EASING"
-    mapping = nodes.new("ShaderNodeMapping")
-    mapping.inputs["Rotation"].default_value = (0.0, math.radians(-90), 0.0)
-    coord = nodes.new("ShaderNodeTexCoord")
-
-    ramp = nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].position = 0.0
-    ramp.color_ramp.elements[0].color = (0.055, 0.026, 0.016, 1)  # floor
-    ramp.color_ramp.elements[1].position = 1.0
-    ramp.color_ramp.elements[1].color = (0.240, 0.130, 0.060, 1)  # warm above
-
-    links.new(coord.outputs["Generated"], mapping.inputs["Vector"])
-    links.new(mapping.outputs["Vector"], tex.inputs["Vector"])
-    links.new(tex.outputs["Fac"], ramp.inputs["Fac"])
-    links.new(ramp.outputs["Color"], bg.inputs["Color"])
-    links.new(bg.outputs["Background"], out.inputs["Surface"])
-
-
-def add_area(name, location, rotation, size, energy, color):
-    data = bpy.data.lights.new(name, type="AREA")
-    data.size = size
-    data.energy = energy
-    data.color = color
-    obj = bpy.data.objects.new(name, data)
-    obj.location = location
-    obj.rotation_euler = rotation
-    bpy.context.collection.objects.link(obj)
-    return obj
-
-
 def build_light_rig(height, flames):
     """Shared across every object, so they composite coherently.
 
@@ -685,94 +616,6 @@ def build_light_rig(height, flames):
         bpy.context.collection.objects.link(obj)
 
 
-def build_camera(height):
-    """Orthographic, tilted slightly down.
-
-    Orthographic because the altar is a flat CSS composition and perspective
-    convergence here would fight the page layout. Tilted because a dead-level
-    view puts the oil dish exactly edge-on, where it reads as a flat saucer
-    instead of a bowl with lips.
-    """
-    data = bpy.data.cameras.new("camera")
-    data.type = "ORTHO"
-    data.ortho_scale = height * ORTHO_MARGIN
-
-    pitch = math.radians(90.0 - TILT_DEG)
-    # A camera with no rotation looks along -Z; R_x(pitch) sends that to
-    # (0, sin(pitch), -cos(pitch)).
-    forward = (0.0, math.sin(pitch), -math.cos(pitch))
-    dist = height * 4.0
-    target_z = height * 0.5
-
-    cam = bpy.data.objects.new("camera", data)
-    cam.location = (
-        -dist * forward[0],
-        -dist * forward[1],
-        target_z - dist * forward[2],
-    )
-    cam.rotation_euler = (pitch, 0.0, 0.0)
-    bpy.context.collection.objects.link(cam)
-    bpy.context.scene.camera = cam
-    return cam
-
-
-def configure_render(width, height, out_path):
-    scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.device = "CPU"
-    scene.cycles.samples = SAMPLES
-    scene.cycles.use_denoising = True
-    scene.cycles.max_bounces = 8
-    scene.cycles.transmission_bounces = 4
-
-    scene.render.film_transparent = True
-    scene.render.resolution_x = width
-    scene.render.resolution_y = height
-    scene.render.resolution_percentage = 100
-    scene.render.image_settings.file_format = "PNG"
-    scene.render.image_settings.color_mode = "RGBA"
-    scene.render.image_settings.compression = 90
-    scene.render.filepath = out_path
-
-    # AgX alone desaturates gold badly; Punchy plus a little exposure keeps the
-    # brass reading as warm metal rather than brown.
-    scene.view_settings.view_transform = "AgX"
-    scene.view_settings.look = "AgX - Punchy"
-    scene.view_settings.exposure = 0.5
-
-
-def clear_scene():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-
-
-def report_projection(name, points, height, width, render_h, ortho_scale):
-    """Print where world points land in the render, as fractions of the PNG.
-
-    This is the number the web side needs and cannot compute: WICKS in
-    altar.ts, the diya's flame offset, the arati lamp's grip point. They used
-    to be re-derived by hand from this script's camera, which is exactly the
-    kind of coupling that goes stale silently. Re-render and the correct
-    values are in the log.
-
-    The camera is orthographic with screen right = +x and screen up
-    (0, sin TILT, cos TILT), aimed at (0, 0, height/2). Blender fits
-    ortho_scale to the longer resolution axis.
-    """
-    if width >= render_h:
-        ortho_w = ortho_scale
-        ortho_h = ortho_scale * render_h / width
-    else:
-        ortho_h = ortho_scale
-        ortho_w = ortho_scale * width / render_h
-
-    tilt = math.radians(TILT_DEG)
-    print(f"[altar-assets] {name}: projected fractions of the {width}x{render_h} PNG")
-    for label, (x, y, z) in points:
-        fx = 0.5 + x / ortho_w
-        fy = 0.5 - (y * math.sin(tilt) + (z - height * 0.5) * math.cos(tilt)) / ortho_h
-        print(f"[altar-assets]   {label:<14} x: {fx:.4f}  y: {fy:.4f}")
-
-
 def render_object(name, builder, out_dir):
     clear_scene()
     obj, flames = builder()
@@ -810,62 +653,16 @@ def render_object(name, builder, out_dir):
     # holds a lamp and therefore what the arati wave has to rotate about.
     landmarks = [(f"wick{i}", pt) for i, pt in enumerate(flames)]
     landmarks.append(("grip", (0.0, 0.0, 0.0)))
-    report_projection(name, landmarks, height, width, render_h, cam.data.ortho_scale)
-
-    out_path = os.path.join(out_dir, f"{name}@3x.png")
-    configure_render(width, render_h, out_path)
-    print(f"[altar-assets] {name}: {width}x{render_h} -> {out_path}")
-    bpy.ops.render.render(write_still=True)
-    report_content_box(out_path)
-    downscale(out_path, os.path.join(out_dir, f"{name}@2x.png"), 2 / 3)
-
-
-def report_content_box(src):
-    """Print how much of the PNG is transparent margin, as fractions.
-
-    ORTHO_MARGIN leaves clear space around every render, so an element sized
-    to the PNG floats above whatever it is meant to stand on. The web side
-    needs to know by how much — the arati lamp's `bottom` offset on its shelf
-    is exactly this number — and it cannot be derived from the camera, because
-    it depends on where the silhouette actually falls.
-    """
-    try:
-        out = subprocess.run(
-            ["magick", src, "-format", "%w %h %@", "info:"],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError) as err:
-        print(f"[altar-assets] WARNING: could not measure {src}: {err}")
-        return
-
-    # "%@" is WxH+X+Y of the opaque bounding box.
-    w, h, box = out.split(" ", 2)
-    size, _, offset = box.partition("+")
-    bw, bh = (int(v) for v in size.split("x"))
-    bx, by = (int(v) for v in offset.split("+"))
-    w, h = int(w), int(h)
-
-    print(
-        f"[altar-assets]   content box    "
-        f"left: {bx / w:.4f}  right: {1 - (bx + bw) / w:.4f}  "
-        f"top: {by / h:.4f}  bottom: {1 - (by + bh) / h:.4f}"
+    report_projection(
+        TAG, name, landmarks, height, width, render_h, cam.data.ortho_scale
     )
 
-
-def downscale(src, dst, factor):
-    """Derive the 2x asset from the 3x render rather than rendering twice, so
-    the two are guaranteed identical apart from resolution."""
-    try:
-        subprocess.run(
-            ["magick", src, "-resize", f"{factor * 100:.4f}%", dst],
-            check=True,
-            capture_output=True,
-        )
-        print(f"[altar-assets] downscaled -> {dst}")
-    except (OSError, subprocess.CalledProcessError) as err:
-        print(f"[altar-assets] WARNING: could not downscale {src}: {err}")
+    out_path = os.path.join(out_dir, f"{name}@3x.png")
+    configure_render(width, render_h, out_path, samples=SAMPLES)
+    print(f"[{TAG}] {name}: {width}x{render_h} -> {out_path}")
+    bpy.ops.render.render(write_still=True)
+    report_content_box(TAG, out_path)
+    downscale(out_path, os.path.join(out_dir, f"{name}@2x.png"), 2 / 3)
 
 
 def main():
@@ -875,8 +672,7 @@ def main():
     parser.add_argument("--only", action="append", choices=sorted(OBJECTS))
     args = parser.parse_args(argv)
 
-    out_dir = os.path.abspath(args.out)
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = ensure_dir(args.out)
 
     for name in args.only or sorted(OBJECTS):
         render_object(name, OBJECTS[name], out_dir)
