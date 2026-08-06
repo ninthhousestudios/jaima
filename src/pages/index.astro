@@ -29,7 +29,11 @@ import Base from '../layouts/Base.astro';
   import { initPhotoMode } from '../components/photo-mode';
   import { initJapaMode, activateJapa, destroyJapa } from '../components/japa-mode';
   import { initGarlandMode, setGarlandActive } from '../components/garland-mode';
-  import { initTeachingsMode } from '../components/teachings-mode';
+  import {
+    initTeachingsMode,
+    activateTeachings,
+    destroyTeachings,
+  } from '../components/teachings-mode';
   import { initSoundMode } from '../components/sound-mode';
   import type { Mode } from '../components/lotus-nav';
 
@@ -54,12 +58,14 @@ import Base from '../layouts/Base.astro';
       (el as HTMLElement).classList.remove('active');
     });
     if (mode !== 'japa') destroyJapa();
+    if (mode !== 'teachings') destroyTeachings();
     if (!mode) return;
     const overlay = document.getElementById(`mode-${mode}`);
     if (overlay) overlay.classList.add('active');
-    // After .active, never before: the japa crawl measures its own line
-    // height, and everything in a display:none overlay measures 0.
+    // After .active, never before: both of these measure a scrolling column,
+    // and everything in a display:none overlay measures 0.
     if (mode === 'japa') activateJapa();
+    if (mode === 'teachings') activateTeachings();
     // The garland canvas only takes the pointer inside its own mode; the
     // garlands themselves stay on the altar either way.
     setGarlandActive(mode === 'garland');
@@ -1142,14 +1148,19 @@ import Base from '../layouts/Base.astro';
     opacity: 1;
   }
 
-  .japa-counter {
+  .japa-counter,
+  .teachings-counter {
     margin: 0 0 0.6rem;
     text-align: center;
     color: hsla(30, 30%, 60%, 0.6);
     font-size: 0.85rem;
   }
 
-  .japa-controls {
+  /* The control bar below the stage. Japa and teachings share it — same
+     panel, same buttons, same slider — so the rules from here down carry both
+     class families rather than a second copy under teachings. */
+  .japa-controls,
+  .teachings-controls {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1161,7 +1172,8 @@ import Base from '../layouts/Base.astro';
   }
 
   .japa-scripts,
-  .japa-views {
+  .japa-views,
+  .teachings-views {
     display: flex;
     gap: 0.5rem;
   }
@@ -1193,7 +1205,8 @@ import Base from '../layouts/Base.astro';
   }
 
   .japa-script,
-  .japa-view {
+  .japa-view,
+  .teachings-view {
     background: hsla(30, 20%, 30%, 0.5);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #d4b89a;
@@ -1205,13 +1218,15 @@ import Base from '../layouts/Base.astro';
   }
 
   .japa-script.active,
-  .japa-view.active {
+  .japa-view.active,
+  .teachings-view.active {
     background: hsla(30, 40%, 40%, 0.7);
     border-color: hsla(30, 50%, 60%, 0.5);
     color: #f0d8b8;
   }
 
-  .japa-playback {
+  .japa-playback,
+  .teachings-playback {
     display: flex;
     align-items: center;
     gap: 0.8rem;
@@ -1219,7 +1234,10 @@ import Base from '../layouts/Base.astro';
 
   .japa-back,
   .japa-play,
-  .japa-advance {
+  .japa-advance,
+  .teachings-back,
+  .teachings-play,
+  .teachings-advance {
     background: hsla(30, 20%, 30%, 0.5);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #d4b89a;
@@ -1232,12 +1250,16 @@ import Base from '../layouts/Base.astro';
 
   .japa-back:hover,
   .japa-play:hover,
-  .japa-advance:hover {
+  .japa-advance:hover,
+  .teachings-back:hover,
+  .teachings-play:hover,
+  .teachings-advance:hover {
     background: hsla(30, 30%, 38%, 0.6);
   }
 
   /* Left is slow, right is fast, in both views. */
-  .japa-speed {
+  .japa-speed,
+  .teachings-speed {
     width: 80px;
     accent-color: #d4a574;
   }
@@ -1339,24 +1361,58 @@ import Base from '../layouts/Base.astro';
     display: inline-block;
   }
 
-  /* Teachings mode */
+  /* Teachings mode
+
+     The same two views japa offers, and the stream is built the same way: one
+     tall column translated upward, laid out twice so the wrap lands on
+     identical content, dissolving into the top of the stage.
+
+     It is deliberately not tilted like the japa crawl. That perspective is
+     readable for a three-word name and punishing for a four-line sentence —
+     the far end of the column is where the text is smallest and most skewed,
+     which is fine for something you are chanting from memory and not for
+     something you are reading for the first time. */
   .teachings-overlay {
     position: fixed;
     inset: 0;
     z-index: 30;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     justify-content: center;
     background: hsla(0, 0%, 0%, 0.45);
-    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  /* Tap-anywhere-to-advance is a single-view affordance. */
+  .teachings-overlay.view-single { cursor: pointer; }
+  .teachings-overlay.view-single .teachings-stream { display: none; }
+  .teachings-overlay.view-stream .teachings-display { display: none; }
+
+  /* Single does not play on its own — a teaching is done when the reader is
+     done with it — so the two controls that only mean anything to a moving
+     column go with the column. */
+  .teachings-overlay.view-single .teachings-play,
+  .teachings-overlay.view-single .teachings-speed { display: none; }
+
+  .teachings-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
   }
 
   .teachings-display {
-    max-width: 600px;
-    padding: 3rem;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
+    padding: 2rem;
   }
 
   .teachings-quote {
+    max-width: 40rem;
     font-size: clamp(1.1rem, 3vw, 1.6rem);
     color: #f0d8b8;
     font-style: italic;
@@ -1377,6 +1433,42 @@ import Base from '../layouts/Base.astro';
     margin-top: 1.5rem;
     color: hsla(30, 40%, 65%, 0.7);
     font-size: 0.95rem;
+  }
+
+  .teachings-stream {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to top, #000 0 52%, transparent 92%);
+    mask-image: linear-gradient(to top, #000 0 52%, transparent 92%);
+  }
+
+  /* Starts below the stage, so the column rises into view rather than
+     appearing already full. The transform is the scroll position and nothing
+     else may claim it — hence the centring is done with auto margins on the
+     quotes rather than a translateX here. */
+  .teachings-stream-track {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
+  .teachings-stream-quote {
+    max-width: min(40rem, 82vw);
+    /* The gap between teachings is padding, not margin: the track's positions
+       are read with offsetTop, and collapsing margins would put the first
+       teaching somewhere other than 0 and shorten every gap by half. */
+    margin: 0 auto;
+    padding: 1.4rem 0;
+    border: none;
+    text-align: center;
+    font-size: clamp(1rem, 2.2vw, 1.45rem);
+    line-height: 1.7;
+    font-style: italic;
+    color: #f0d8b8;
+    text-shadow: 0 0 24px hsla(30, 60%, 50%, 0.3);
   }
 
   /* Sound mode */

@@ -195,6 +195,33 @@ which om to use. The tool normalises all of it and then **asserts each name
 count**. That assert is the safety net: an edit that merges or drops a line
 fails the build instead of quietly shortening the japa.
 
+## Teachings
+
+Amma's words, in the same two views japa offers: `single` holds one and you
+click for the next, `stream` sends the whole list climbing up the screen.
+**Single is the default and has no autoplay** — a name is a syllable you
+repeat, a teaching is a sentence, and only the reader knows when they have
+finished it. The play button and the speed slider are hidden in single for
+that reason; the two views otherwise share the japa control bar's CSS, which
+is why those rules carry both class families.
+
+`docs/teachings.md` is the source, imported with `?raw` at build time and
+split on blank lines. No build step and no copy in the TS: words attributed to
+Amma are exactly the thing that gets paraphrased into something she never
+said, so there is one file to check against. Duplicates are dropped — the file
+repeats one today.
+
+The stream is **not** tilted like the japa crawl. That perspective is readable
+for a three-word name and punishing for a four-line sentence. It also cannot
+reuse the crawl's row arithmetic, because a teaching wraps to a different
+number of lines than its neighbour: `measure()` reads each one's `offsetTop`
+instead, which is why the quotes are spaced with padding rather than margins
+(collapsing margins would move the first one off zero).
+
+`READ_LINE` is one constant doing two jobs and they have to agree — `seekIndex`
+puts a teaching on that line and `indexAt` reads one back off the offset. Move
+one without the other and the counter disagrees with the screen.
+
 ## Garlands
 
 You take a garland from the panel, carry it across the altar and hang it on
