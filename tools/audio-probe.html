@@ -1,0 +1,107 @@
+<!--
+  audio-probe.html — headless check of the sound beds.
+
+  Lives here, NOT in static/, because static/ is the publicDir and anything in
+  it ships to the live site. To run it, copy it in for the duration:
+
+      cp tools/audio-probe.html static/ && npm run dev
+      chromium --headless --disable-gpu --no-sandbox \
+        --autoplay-policy=no-user-gesture-required \
+        --window-size=1600,1000 --virtual-time-budget=40000 \
+        --dump-dom http://localhost:4321/audio-probe.html \
+        | sed -n '/<pre id="out">/,/<\/pre>/p' | sed 's/<[^>]*>//g'
+      mv static/audio-probe.html /tmp/
+
+  It reports three things reading the CSS will not tell you: that the assets
+  decode to the right durations, that nothing is overlapping the buttons
+  (elementFromPoint at each button's centre), and that audio actually reaches
+  the graph (an AnalyserNode spliced into every gain the module creates).
+
+  The iframe needs allow="autoplay" or the context stays blocked. Note that a
+  synthetic MouseEvent is not user activation, so this cannot reproduce the
+  gesture half of the autoplay policy — only a real click can.
+-->
+<!doctype html>
+<meta charset="utf-8">
+<title>audio + hit-test probe</title>
+<body>
+<pre id="out">running...</pre>
+<iframe id="f" src="/" allow="autoplay" style="width:1600px;height:1000px;border:0"></iframe>
+<script>
+const log = [];
+const say = s => { log.push(s); document.getElementById('out').textContent = log.join('\n'); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+(async () => {
+  // Also burns a few seconds of real time, which the iframe below needs in
+  // order to finish its entry animation before we start poking at it.
+  try {
+    const ctx = new AudioContext();
+    for (const url of ['/audio/tanpura.opus', '/audio/ocean1.opus']) {
+      const b = await ctx.decodeAudioData(await (await fetch(url)).arrayBuffer());
+      say(`decode ${url}: ${b.duration.toFixed(2)}s ${b.numberOfChannels}ch`);
+    }
+  } catch (e) { say(`DECODE FAILED: ${e}`); }
+
+  const f = document.getElementById('f');
+  if (f.contentDocument?.readyState !== 'complete') {
+    await new Promise(r => f.addEventListener('load', r, { once: true }));
+  }
+  const w = f.contentWindow, d = f.contentDocument;
+  // The overlays only exist once enterRoom() runs, so keep nudging the
+  // threshold until they appear rather than guessing at a delay.
+  for (let i = 0; i < 40 && !d.getElementById('mode-sound'); i++) {
+    d.getElementById('threshold')?.click();
+    d.body?.click();
+    await sleep(250);
+  }
+  if (!d.getElementById('mode-sound')) { say('never entered the room'); return; }
+  say('room entered');
+
+  // The module builds its AudioContext lazily on the first click, so swapping
+  // the constructor now still catches it. Every gain it makes gets a tap.
+  const Real = w.AudioContext;
+  let probe = null;
+  w.AudioContext = class extends Real {
+    constructor(...a) {
+      super(...a);
+      probe = this.createAnalyser();
+      probe.fftSize = 2048;
+      this.__probe = probe;
+    }
+    createGain() { const g = super.createGain(); g.connect(this.__probe); return g; }
+  };
+
+  // handleModeChange isn't exported; this is what it does for sound.
+  const panel = d.getElementById('mode-sound');
+  panel.classList.add('active');
+  await sleep(200);
+
+  const pr = panel.getBoundingClientRect();
+  say(`panel ${Math.round(pr.x)},${Math.round(pr.y)} ${Math.round(pr.width)}x${Math.round(pr.height)}  (viewport ${w.innerWidth}x${w.innerHeight})`);
+
+  d.querySelectorAll('.sound-track[data-track]').forEach(b => {
+    const r = b.getBoundingClientRect();
+    const top = d.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    const ok = top === b || b.contains(top);
+    say(`[${b.dataset.track}] at ${Math.round(r.x)},${Math.round(r.y)} -> <${top?.tagName.toLowerCase()} class="${top?.getAttribute('class') || ''}"> ${ok ? 'REACHABLE' : '*** BLOCKED ***'}`);
+  });
+
+  const t = d.querySelector('.sound-track[data-track="tanpura"]');
+  t.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  say(`clicked; loading=${t.classList.contains('loading')}`);
+
+  for (const wait of [1500, 3000, 3000]) {
+    await sleep(wait);
+    let rms = 0;
+    if (probe) {
+      const buf = new Float32Array(probe.fftSize);
+      probe.getFloatTimeDomainData(buf);
+      rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
+    }
+    say(`  +${wait}ms  pressed=${t.getAttribute('aria-pressed')} loading=${t.classList.contains('loading')} signalRMS=${rms.toFixed(5)}`);
+  }
+  say('DONE');
+})().catch(e => say('THREW: ' + e + '\n' + e.stack));
+</script>
+</body>

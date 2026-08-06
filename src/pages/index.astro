@@ -1297,9 +1297,13 @@ import Base from '../layouts/Base.astro';
   }
 
   /* Sound mode */
+  /* Top right, in the gap between the right lamp and the edge. It sat at
+     bottom right before, where the lotus nav's transparent toggle circle
+     (z-index 50, ~25px radius about a point 102px in from each corner)
+     overlapped the lower button and ate clicks near its bottom edge. */
   .sound-overlay {
     position: fixed;
-    bottom: 6rem;
+    top: 2rem;
     right: 2rem;
     z-index: 40;
     flex-direction: column;
@@ -1341,6 +1345,11 @@ import Base from '../layouts/Base.astro';
     border-color: hsla(38, 70%, 60%, 0.6);
     color: hsla(38, 65%, 80%, 1);
     box-shadow: 0 0 12px hsla(35, 80%, 55%, 0.18);
+  }
+
+  /* Lit but not yet sounding — the buffer is still coming down. */
+  .sound-track.loading {
+    opacity: 0.6;
   }
 
   .sound-track[disabled] {

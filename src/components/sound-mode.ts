@@ -73,16 +73,33 @@ function bedFor(id: TrackId): Bed {
 }
 
 async function start(id: TrackId) {
+  const ctx = audio();
+  // Ask to resume FIRST, synchronously, and never await it. Two separate traps:
+  // an AudioContext starts suspended and only resumes off a user gesture, so
+  // awaiting a 775 KB fetch before asking spends the gesture the click gave us;
+  // and a context the autoplay policy has blocked leaves this promise pending
+  // for ever rather than rejecting, so awaiting it hangs the whole start with
+  // nothing thrown. Fire it off and let the source play when the context runs.
+  void ctx.resume();
+
   const bed = bedFor(id);
   // Fetched on first play, not on page load — the tanpura is ~775 KB and most
   // visitors never turn the sound on.
   if (!bed.buffer) {
     bed.buffer = fetch(pick(SOURCES[id]))
-      .then(r => r.arrayBuffer())
-      .then(b => audio().decodeAudioData(b));
+      .then(r => {
+        if (!r.ok) throw new Error(`${r.status} fetching ${r.url}`);
+        return r.arrayBuffer();
+      })
+      .then(b => ctx.decodeAudioData(b))
+      .catch(err => {
+        // Leaving a rejected promise cached makes the failure permanent —
+        // every later click would await the same rejection.
+        bed.buffer = null;
+        throw err;
+      });
   }
   const buffer = await bed.buffer;
-  await audio().resume(); // the click that got us here is the unlock gesture
 
   if (bed.source) return; // toggled off and on again before the fetch landed
 
@@ -133,8 +150,21 @@ export function initSoundMode(container: HTMLElement) {
       const playing = button.getAttribute('aria-pressed') === 'true';
       button.setAttribute('aria-pressed', String(!playing));
       button.classList.toggle('playing', !playing);
-      if (playing) stop(id);
-      else void start(id);
+
+      if (playing) {
+        stop(id);
+        return;
+      }
+      // .loading until the buffer lands: on a cold cache this is a second or
+      // two of silence, and without it the button looks lit but dead.
+      button.classList.add('loading');
+      start(id)
+        .catch(err => {
+          console.error(`sound: ${id} failed to start`, err);
+          button.setAttribute('aria-pressed', 'false');
+          button.classList.remove('playing');
+        })
+        .finally(() => button.classList.remove('loading'));
     });
   });
 
