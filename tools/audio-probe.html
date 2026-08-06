@@ -7,7 +7,7 @@
       cp tools/audio-probe.html static/ && npm run dev
       chromium --headless --disable-gpu --no-sandbox \
         --autoplay-policy=no-user-gesture-required \
-        --window-size=1600,1000 --virtual-time-budget=40000 \
+        --window-size=1600,1000 --virtual-time-budget=120000 \
         --dump-dom http://localhost:4321/audio-probe.html \
         | sed -n '/<pre id="out">/,/<\/pre>/p' | sed 's/<[^>]*>//g'
       mv static/audio-probe.html /tmp/
@@ -17,11 +17,14 @@
   (elementFromPoint at each button's centre), and that audio actually reaches
   the graph (an AnalyserNode spliced into every gain the module creates).
 
-  Warm the cache first (curl the .opus once) and give it a generous
-  --virtual-time-budget. Virtual time races ahead of the real network, so a
-  cold 775 KB fetch reports a false signalRMS=0 with loading stuck on — which
-  looks exactly like the resume() bug this was written to catch. Re-run warm
-  before believing a zero.
+  Do not wait with setTimeout. --virtual-time-budget fast-forwards timers,
+  but decodeAudioData costs real wall-clock time on a background thread, so
+  sleeps sail straight past it and report signalRMS=0 with loading stuck on —
+  indistinguishable from the resume() bug this exists to catch, and it fooled
+  me twice. Chrome does pause virtual time for in-flight network fetches, so
+  the poll loop buys real milliseconds with a cache-busted request each turn.
+  A correct run shows RMS rising over successive polls as the fade-in ramps;
+  a single static value is a sign the waiting is broken again.
 
   The iframe needs allow="autoplay" or the context stays blocked. Note that a
   synthetic MouseEvent is not user activation, so this cannot reproduce the
@@ -83,6 +86,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   panel.classList.add('active');
   await sleep(200);
 
+  const box = (sel, i = 0) => {
+    const e = d.querySelectorAll(sel)[i];
+    if (!e) return `${sel}[${i}]: missing`;
+    const r = e.getBoundingClientRect();
+    return `${sel}[${i}]  x ${Math.round(r.left)}..${Math.round(r.right)}  y ${Math.round(r.top)}..${Math.round(r.bottom)}`;
+  };
+  say(box('.altar-lamp', 1));
+  say(box('#lotus-container'));
+  say(box('.altar-shelf', 1));
+
   const pr = panel.getBoundingClientRect();
   say(`panel ${Math.round(pr.x)},${Math.round(pr.y)} ${Math.round(pr.width)}x${Math.round(pr.height)}  (viewport ${w.innerWidth}x${w.innerHeight})`);
 
@@ -93,19 +106,35 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     say(`[${b.dataset.track}] at ${Math.round(r.x)},${Math.round(r.y)} -> <${top?.tagName.toLowerCase()} class="${top?.getAttribute('class') || ''}"> ${ok ? 'REACHABLE' : '*** BLOCKED ***'}`);
   });
 
+  w.addEventListener('error', e => say(`iframe error: ${e.message}`));
+  w.addEventListener('unhandledrejection', e => say(`iframe rejection: ${e.reason}`));
+  const realErr = w.console.error;
+  w.console.error = (...a) => { say('iframe console.error: ' + a.join(' ')); realErr.apply(w.console, a); };
+
+  // Does a plain fetch from inside the iframe work at all?
+  w.fetch('/audio/tanpura.opus')
+    .then(r => say(`iframe fetch: ${r.status} ${r.headers.get('content-length')} bytes`))
+    .catch(e => say(`iframe fetch FAILED: ${e}`));
+
   const t = d.querySelector('.sound-track[data-track="tanpura"]');
   t.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
-  say(`clicked; loading=${t.classList.contains('loading')}`);
+  say(`clicked; loading=${t.classList.contains('loading')} ctxMade=${!!probe}`);
 
-  for (const wait of [1500, 3000, 3000]) {
-    await sleep(wait);
+  // setTimeout is useless for waiting here: --virtual-time-budget fast-forwards
+  // timers, but decodeAudioData costs real wall-clock time on a background
+  // thread, so sleeps race straight past it and report a false RMS of 0. Chrome
+  // does pause virtual time while a network fetch is in flight, so each poll
+  // buys real milliseconds with a cache-busted request.
+  for (const i of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    await w.fetch('/audio/ocean2.opus?spin=' + i).then(r => r.arrayBuffer()).catch(() => {});
+    await sleep(200);
     let rms = 0;
     if (probe) {
       const buf = new Float32Array(probe.fftSize);
       probe.getFloatTimeDomainData(buf);
       rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
     }
-    say(`  +${wait}ms  pressed=${t.getAttribute('aria-pressed')} loading=${t.classList.contains('loading')} signalRMS=${rms.toFixed(5)}`);
+    say(`  poll ${i}  pressed=${t.getAttribute('aria-pressed')} loading=${t.classList.contains('loading')} signalRMS=${rms.toFixed(5)}`);
   }
   say('DONE');
 })().catch(e => say('THREW: ' + e + '\n' + e.stack));

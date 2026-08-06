@@ -1297,17 +1297,20 @@ import Base from '../layouts/Base.astro';
   }
 
   /* Sound mode */
-  /* In the gap between the right lamp and the edge, at just past mid height —
-     below the lamp's flames, and well above the lotus nav. It sat at bottom
-     right before, inside the nav's transparent toggle circle (z-index 50, ~25px
-     radius about a point 102px in from each corner), which covered the lower
-     button's bottom edge and ate clicks there. Anchored as a percentage so it
-     tracks the lamp, which is also placed proportionally. */
+  /* Stacked directly above the lotus nav, in the strip between the right lamp
+     and the edge. Both offsets are derived, not picked: the nav is 140px tall
+     at bottom: 2rem, so its top edge is 172px up and the panel clears it by a
+     further 1rem. It sat at bottom right originally, inside the nav's
+     transparent toggle circle (z-index 50), which ate clicks on the lower
+     button.
+
+     The strip is narrow — the right lamp's box ends at x 1497 and the viewport
+     is 1600, so there are only ~103px of true clearance. Hence the tighter
+     padding below: the panel has to stay slim or it sits on the lamp. */
   .sound-overlay {
     position: fixed;
-    top: 57%;
-    right: 2rem;
-    transform: translateY(-50%);
+    bottom: calc(2rem + 140px + 1rem);
+    right: 1rem;
     z-index: 40;
     flex-direction: column;
     align-items: flex-end;
@@ -1317,7 +1320,7 @@ import Base from '../layouts/Base.astro';
     background: hsla(0, 0%, 8%, 0.85);
     border: 1px solid hsla(30, 40%, 50%, 0.2);
     border-radius: 8px;
-    padding: 1.2rem;
+    padding: 0.7rem;
   }
 
   .sound-tracks {
@@ -1330,7 +1333,7 @@ import Base from '../layouts/Base.astro';
     background: hsla(30, 20%, 30%, 0.4);
     border: 1px solid hsla(30, 30%, 40%, 0.3);
     color: hsla(30, 30%, 68%, 0.85);
-    padding: 0.4rem 1rem;
+    padding: 0.4rem 0.7rem;
     border-radius: 4px;
     font-size: 0.85rem;
     cursor: pointer;
