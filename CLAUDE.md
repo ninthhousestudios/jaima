@@ -17,6 +17,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 - `src/components/` — vanilla TS modules, each owning one concern:
   - `altar.ts` — the shrine the photo sits in: frame, mat, ledge, lamps, shelves, offerings
   - `arati-lamp.ts` — the pancharati hand lamp; built to be picked up and waved
+  - `arati-mode.ts` — the arati recording, and the hand that waves either lamp
   - `dom.ts` — `el()` and `flame()`, shared by anything that builds brass
   - `altar-flowers.ts` — seeded procedural SVG (marigold, rose, jasmine, thoranam)
   - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
@@ -117,19 +118,31 @@ Also derived, and not printed: `.altar-diya .altar-flame { left: 89.3%; top:
 derived `WICKS` and reproduces them to four places, so trust the log over
 arithmetic. "Make the lamp a bit wider" is still not a one-line change.
 
-### The arati lamps (and what v2 has to work with)
+### The arati lamps
 
 Two pancharati stand on the bracket shelves, modelled from
-`docs/arati-lamp-*.jpg`. They are built by `arati-lamp.ts`, not `altar.ts`,
-because arati mode will build one too. The whole interface for waving one is
-already there and is deliberately small:
+`docs/arati-lamp-*.jpg`. They are built by `arati-lamp.ts` rather than
+`altar.ts` because arati mode drives them, and `initAltar` hands their setters
+out as `Altar.aratiLamps` — by value, not by selector, since a querySelector
+would only find the div. The interface is three setters and nothing else:
 
-- `--arati-h` sizes it, `--shelf-x`/`--shelf-y` place the shelf it stands on.
+- `setLift(x, y)` carries it off its shelf, in px. The lamp is **never
+  reparented** while carried; reparenting restarts every flame's CSS flicker
+  mid-wave. `--lift-x`/`--lift-y` come first in the transform list so the tilt
+  still pivots about the grip wherever it has been carried to.
 - `setTilt(deg)` turns it about the **grip** — the dish underside, where a hand
   holds it — not about the element's centre.
-- Each flame counter-rotates by `--flame-plumb` so it stays upright however far
-  the lamp leans. A flame leaning with the lamp is the single thing that gives
-  a waved sprite away. It defaults to `0deg`, so nothing static is affected.
+- `setDrag(deg)` leans the flames back against the direction of travel.
+
+`--arati-h` sizes it, `--shelf-x`/`--shelf-y` place the shelf it stands on.
+
+Two flame angles that must not be confused. Each flame counter-rotates by
+`--flame-plumb` so it stays upright however far the lamp leans — a flame
+leaning *with* the lamp is the single thing that gives a waved sprite away.
+`--flame-drag` is the opposite idea, added on top: it leans the flame *away*
+from the direction the lamp is travelling, which is what fire dragged through
+air does. Plumb cancels the lamp's rotation, drag adds the air. Both default to
+`0deg`, so nothing static is affected.
 
 The lamp is modelled with **no handle**, on purpose: a handle would give it a
 front, which is wrong for something swung through an arc.
@@ -137,7 +150,8 @@ front, which is wrong for something swung through an arc.
 Embers currently source from `.altar-lamp .altar-flame` only — the two big
 lamps. The arati flames are deliberately excluded so five embers do not get
 spread across fifteen wicks. Widening that selector is the one-line change if
-v2 wants them.
+a waved lamp should throw them, and the reason it has not been made is that it
+would change the *static* altar too.
 
 ## Japa
 
@@ -327,7 +341,69 @@ parameters `render-tanpura.py` passes. The ocean masters are `docs/ocean*.wav`
 
 No bhajans. The recordings belong to the Math and the CC tags on archive.org
 copies are uploader-applied, so there is nothing freely shippable. Amma's arati
-is a separate question and may end up an embedded player.
+is the exception and it went the other way — an embedded player, below.
+
+## Arati
+
+The arati plays in the upper left corner and either lamp can be taken off its
+shelf and waved for as long as you like. The two are deliberately **not wired
+to each other**: nothing waits for the video, nothing counts bars, the wave
+neither starts nor stops with playback. The rite is the visitor's to perform;
+the recording is what the room sounds like while they perform it.
+
+The lamps waved are the two already on the wall, not a third the mode conjures.
+The shelf standing visibly empty while you hold one is half of what makes it
+read as arati rather than as a widget.
+
+### The player
+
+An `<iframe>`, no YouTube API script, built on first entry and never at init —
+a visitor who does not open arati mode never talks to YouTube at all.
+`youtube-nocookie.com`, no autoplay parameter anywhere, and the video id is one
+constant at the top of `arati-mode.ts` (`docs/arati-youtube.md` is the source).
+
+**Leaving the mode pauses it, and this is the one place sound mode's rule is
+deliberately inverted.** The beds outlive their panel because ambience should;
+the arati is a rite with a beginning and an end. The mechanism matters: the
+overlay goes `display: none` around the iframe and *a hidden YouTube frame keeps
+playing* — the audio would follow you into japa with nothing on screen to
+explain it or turn it off. So the frame stays mounted, keeping its position for
+when you come back, and is told to pause over the postMessage channel that
+`enablejsapi=1` opens. Verified against the real player: it pauses, stays
+paused, and returns holding its position rather than restarting.
+
+The player's width has a floor (`clamp(360px, ...)`) rather than being pure vw
+because YouTube's terms put a floor of 200 x 200 px on an embedded player, and
+360 px at 16:9 is 202 px tall whatever the window does.
+
+### The wave
+
+`setLift` + `setTilt` + `setDrag` and one rAF loop. No canvas, no physics.
+
+`FOLLOW` is below 1 on purpose: the lamp lags the pointer, and that lag is both
+the whole illusion of weight *and* where the velocity the two angles are read
+off comes from. At `FOLLOW: 1` the lamp is nailed to the cursor and never leans
+at all. Tilt and drag are read from horizontal speed only — a lamp raised
+straight up does not lean, and a flame lifted vertically is compressed rather
+than swept aside. Their **signs are opposite**, and that is most of why the
+wave reads as motion rather than as a rotating picture: the lamp leads with its
+top the way a wrist-led sweep carries one, the flames trail the air.
+
+Releasing does not snap it back — the same loop runs with the target set to
+(0, 0), so it settles onto its shelf, and then stops. A still altar costs
+nothing, exactly like the garlands.
+
+Two things are load-bearing and invisible:
+
+- The lamps take the pointer **only** in arati mode (`setAratiActive`, the same
+  arrangement as `setGarlandActive`). They sit over the frame's flanks, where a
+  stray grab would eat a click meant for a garland.
+- `.altar-shelf:has(.arati-lamp.lifted)` raises the *shelf*, not the lamp. The
+  shelf is a positioned element with a `z-index`, hence a stacking context, so
+  raising the lamp inside it does nothing at all. `8` ties with `.altar-light`
+  and `.altar-shade`, and a tie breaks on document order — the stage comes
+  first, so a carried lamp clears the offerings and still passes under the two
+  light passes, where everything on this altar belongs.
 
 ## Fonts
 

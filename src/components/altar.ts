@@ -1,5 +1,5 @@
 import { marigold, rose, jasmine, petalScatter, thoranam } from './altar-flowers';
-import { buildAratiLamp } from './arati-lamp';
+import { buildAratiLamp, type AratiLamp } from './arati-lamp';
 import { el, flame } from './dom';
 import type { ParticleField, Source } from './particles';
 
@@ -51,6 +51,13 @@ const WICKS = [
 export interface Altar {
   /** Report the flame and incense positions so smoke and embers come from them. */
   attachParticles(field: ParticleField): void;
+  /**
+   * The two lamps on the shelves, left then right, for arati mode to wave.
+   *
+   * Handed out rather than looked up by selector: `buildAratiLamp` returns the
+   * three setters that move one, and a querySelector would only find the div.
+   */
+  readonly aratiLamps: readonly AratiLamp[];
 }
 
 function svg(
@@ -216,8 +223,7 @@ export function initAltar(host: HTMLElement, darshan: HTMLElement): Altar {
 
   buildLamp(stage, 'left');
   buildLamp(stage, 'right');
-  buildShelf(stage, 'left', 11);
-  buildShelf(stage, 'right', 17);
+  const aratiLamps = [buildShelf(stage, 'left', 11), buildShelf(stage, 'right', 17)];
   const offerings = buildOfferings(stage);
 
   // Above every decoration, below the nav: the passes that make the layers
@@ -256,5 +262,6 @@ export function initAltar(host: HTMLElement, darshan: HTMLElement): Altar {
       field = f;
       report();
     },
+    aratiLamps,
   };
 }

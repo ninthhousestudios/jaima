@@ -3,18 +3,24 @@ import { el, flame } from './dom';
 /**
  * The pancharati — the five-flame hand lamp that gets waved before the deity.
  *
- * Two of these stand on wall shelves flanking the photo. In arati mode (v2)
+ * Two of these stand on wall shelves flanking the photo. In arati mode either
  * one is picked up and waved, so this module builds a lamp that can be moved
- * and turned rather than one that is drawn in place:
+ * and turned rather than one that is drawn in place. Three setters are the
+ * whole interface, and arati-mode.ts uses nothing else:
  *
- *   - Position comes from `--arati-x` / `--arati-y` and size from `--arati-h`,
- *     all set on the element. Nothing about where it sits is baked into a
- *     rule, so moving one is assignment, not a reflow of the stylesheet.
- *   - It turns by setting `--wave-tilt`. The element's transform-origin is the
- *     GRIP point below, so it pivots where a hand would hold it, and the
- *     flames counter-rotate to stay plumb (see `--flame-plumb` in index.astro).
+ *   - `setLift` offsets it from the shelf it stands on, in pixels. The lamp
+ *     stays a child of its shelf while carried — it is never reparented, which
+ *     would restart every flame's flicker animation mid-wave.
+ *   - `setTilt` turns it about the GRIP point below, so it pivots where a hand
+ *     would hold it. Each flame counter-rotates by `--flame-plumb` and stays
+ *     upright however far the lamp leans.
+ *   - `setDrag` leans the flames *against* the direction of travel. That is a
+ *     different thing from the plumb and must not be confused with it: a flame
+ *     rotating rigidly with the lamp is the tell that gives a sprite away, a
+ *     flame streaming backward out of a moving lamp is what fire does.
  *
- * That is the whole interface the wave needs: two coordinates and an angle.
+ * All three default to zero, so a lamp nobody has touched is drawn exactly as
+ * it was before any of this existed.
  */
 
 /**
@@ -42,8 +48,12 @@ export const GRIP = { x: 0.5, y: 0.8824 };
 
 export interface AratiLamp {
   readonly root: HTMLElement;
+  /** Carry it off its shelf, in pixels. (0, 0) is standing where it belongs. */
+  setLift(x: number, y: number): void;
   /** Turn the lamp about its grip. Flames stay plumb by themselves. */
   setTilt(degrees: number): void;
+  /** Lean the flames back out of the lamp, against the way it is travelling. */
+  setDrag(degrees: number): void;
   /** The flame elements, for anything that wants to source particles here. */
   flames(): HTMLElement[];
 }
@@ -68,8 +78,17 @@ export function buildAratiLamp(parent: HTMLElement, seed: number): AratiLamp {
 
   return {
     root,
+    setLift(x: number, y: number) {
+      root.style.setProperty('--lift-x', `${x}px`);
+      root.style.setProperty('--lift-y', `${y}px`);
+    },
     setTilt(degrees: number) {
       root.style.setProperty('--wave-tilt', `${degrees}deg`);
+    },
+    setDrag(degrees: number) {
+      // Set on the lamp, read by every flame under it — the flames are not
+      // addressed one at a time because they all move through the same air.
+      root.style.setProperty('--flame-drag', `${degrees}deg`);
     },
     flames() {
       return Array.from(wicks.querySelectorAll<HTMLElement>('.altar-flame'));

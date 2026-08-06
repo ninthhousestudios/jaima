@@ -35,6 +35,7 @@ import Base from '../layouts/Base.astro';
     destroyTeachings,
   } from '../components/teachings-mode';
   import { initSoundMode } from '../components/sound-mode';
+  import { initAratiMode, setAratiActive } from '../components/arati-mode';
   import type { Mode } from '../components/lotus-nav';
 
   let modesInitialized = false;
@@ -51,6 +52,9 @@ import Base from '../layouts/Base.astro';
     initGarlandMode(document.getElementById('altar')!, room);
     initTeachingsMode(room);
     initSoundMode(room);
+    // Arati waves the two lamps already standing on the altar's shelves, so it
+    // is handed their setters rather than building a lamp of its own.
+    initAratiMode(room, document.getElementById('altar')!, altar.aratiLamps);
   }
 
   function handleModeChange(mode: Mode | null) {
@@ -69,6 +73,9 @@ import Base from '../layouts/Base.astro';
     // The garland canvas only takes the pointer inside its own mode; the
     // garlands themselves stay on the altar either way.
     setGarlandActive(mode === 'garland');
+    // Same shape for the arati lamps — in reach only inside arati, and leaving
+    // the mode pauses the recording, which a hidden iframe would not do.
+    setAratiActive(mode === 'arati');
   }
 
   function initAtmosphere() {
@@ -726,8 +733,44 @@ import Base from '../layouts/Base.astro';
     /* Turns about the grip — the centre of the dish's underside, where a hand
        holds it. GRIP in arati-lamp.ts is the same number. */
     transform-origin: 50% 88.24%;
-    transform: translateX(-50%) rotate(var(--wave-tilt, 0deg));
+    /* The lift comes first so the rotation still happens about the grip
+       wherever the lamp has been carried to: each function in the list is
+       applied about transform-origin, so translating does not move the pivot
+       off the hand. --lift-x/y are set by arati-mode.ts, in px. */
+    transform: translate(var(--lift-x, 0px), var(--lift-y, 0px)) translateX(-50%)
+      rotate(var(--wave-tilt, 0deg));
     --flame-plumb: calc(-1 * var(--wave-tilt, 0deg));
+    /* Scenery unless arati mode says otherwise: these sit over the frame's
+       flanks, where a stray grab would eat a click meant for a garland. */
+    pointer-events: none;
+  }
+
+  .arati-lamp.grabbable {
+    pointer-events: auto;
+    cursor: grab;
+    /* Waving is the one thing in the room done by dragging something that is
+       not obviously draggable, so say so on hover. */
+    transition: filter 0.4s ease;
+  }
+
+  .arati-lamp.grabbable:hover .arati-lamp-img,
+  .arati-lamp.lifted .arati-lamp-img {
+    filter: drop-shadow(0 0.6vh 0.9vh hsla(0, 0%, 0%, 0.6))
+      drop-shadow(0 0 1.4vh hsla(36, 90%, 60%, 0.55));
+  }
+
+  .arati-lamp.lifted {
+    cursor: grabbing;
+  }
+
+  /* A lamp in hand has to clear the offerings it is waved over. Raising the
+     lamp itself would do nothing — .altar-shelf is a positioned element with a
+     z-index, so it is a stacking context and its child is sealed inside it.
+     8 ties with .altar-light and .altar-shade, and a tie is broken by document
+     order: the stage comes before both, so the lamp still passes under them,
+     which is where everything on this altar belongs. */
+  .altar-shelf:has(.arati-lamp.lifted) {
+    z-index: 8;
   }
 
   .arati-lamp-img {
@@ -745,8 +788,12 @@ import Base from '../layouts/Base.astro';
     height: 3.6vh;
     /* --flame-plumb is how a waved lamp keeps its flames upright: the lamp
        rotates, each flame rotates back by the same angle about its own wick.
-       Zero everywhere that does not move. */
-    transform: translate(-50%, -94%) rotate(var(--flame-plumb, 0deg))
+       --flame-drag is the opposite idea and the two must not be confused: it
+       leans the flame *away* from the direction the lamp is travelling, which
+       is what fire dragged through air does. Plumb cancels the lamp's rotation;
+       drag adds the air. Both zero everywhere that does not move. */
+    transform: translate(-50%, -94%)
+      rotate(calc(var(--flame-plumb, 0deg) + var(--flame-drag, 0deg)))
       scale(var(--flame-scale, 1));
     transform-origin: 50% 100%;
     pointer-events: none;
@@ -1536,5 +1583,54 @@ import Base from '../layouts/Base.astro';
   .sound-track[disabled] {
     color: hsla(30, 20%, 50%, 0.4);
     cursor: not-allowed;
+  }
+
+  /* Arati mode
+
+     Upper left, the one corner of the composition that is empty: the thoranam
+     runs above it, the left nilavilakku stands well below, and the shelf the
+     left lamp is taken from is over half way down. Nothing else in the room
+     wants that corner, and the lamp is waved in the middle of it. */
+  .arati-overlay {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 30;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    pointer-events: none;
+  }
+
+  /* YouTube's terms put a floor of 200 x 200 px on an embedded player, so the
+     width has a floor rather than being pure vw: 360 px at 16:9 is 202 px tall
+     and clears it whatever the window does. */
+  .arati-player {
+    width: clamp(360px, 26vw, 440px);
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    overflow: hidden;
+    pointer-events: auto;
+    border: 1px solid hsla(30, 40%, 50%, 0.25);
+    box-shadow: 0 0.6vh 2vh hsla(0, 0%, 0%, 0.55);
+  }
+
+  .arati-player iframe {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: 0;
+  }
+
+  /* Taking a lamp off a shelf is not a gesture anyone would guess at, and the
+     lamps are small and dim by design. One quiet line, sized so it reads as a
+     caption under the player rather than as an instruction panel. */
+  .arati-hint {
+    margin: 0;
+    max-width: clamp(360px, 26vw, 440px);
+    color: hsla(30, 30%, 68%, 0.7);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    text-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.8);
   }
 </style>

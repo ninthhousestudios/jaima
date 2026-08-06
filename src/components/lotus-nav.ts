@@ -18,7 +18,7 @@ const PETALS: PetalDef[] = [
   { mode: 'japa', label: 'Japa' },
   { mode: 'teachings', label: 'Teachings' },
   { mode: 'sound', label: 'Sound' },
-  { mode: 'arati', label: 'Āratī', disabled: true },
+  { mode: 'arati', label: 'Āratī' },
 ];
 
 /**

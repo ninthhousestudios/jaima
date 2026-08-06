@@ -93,7 +93,7 @@ Petals / modes:
 | 3 | **Japa** | Stream Lalita Trishati namavali |
 | 4 | **Teachings** | Amma quotes |
 | 5 | **Sound** | Ambient audio (off by default) |
-| 6 | **Arati** | Wave a flame (v2) |
+| 6 | **Arati** | Wave a lamp before her, to a recording of the arati |
 
 ### Mode details
 
@@ -161,11 +161,23 @@ Off by default. Sub-menu with audio options:
 
 Scaffolding built now, actual audio assets added later.
 
-#### Arati (v2)
+#### Arati
 
-A flame that can be waved — interactive arati experience.
-Three.js flame simulation. Paired with an arati recording if
-copyright permits. Not in v1.
+A recording of the arati plays in the upper left corner, and either of the two
+pancharati standing on the altar's shelves can be picked up and waved before
+her for as long as the visitor wants.
+
+It landed a long way from the plan, which called for a Three.js flame
+simulation and treated the recording as a maybe. Both halves inverted. The
+recording turned out to be the easy half — an embedded player, no API script —
+and it is the only Amma audio on the site that clears copyright, because it is
+hosted by the Math rather than shipped by us. And the lamps were already there:
+`arati-lamp.ts` had been built to be waved, so the mode needed no new flame at
+all, only a lift, a lean, and the flames leaning back out of it. A simulated
+flame would have been a third lamp appearing from nowhere, which is a worse
+idea than taking one down off the wall.
+
+The two are not synchronised, on purpose. See CLAUDE.md § Arati.
 
 ## Mantra tab title
 
@@ -235,8 +247,14 @@ Domain: `ജയ്മാ.com` / `xn--iwc0bc5dwd.com`.
 - Mantra tab-title feature
 - Time-of-day atmosphere
 
+The v1 list is left as the record of what that build was. Several of its
+entries have since been filled in — teachings has its quotes, sound has the
+tanpura and ocean beds, the garlands hang on a Verlet rope.
+
+**v2** (landed):
+- Arati (embedded recording, either shelf lamp picked up and waved)
+- Lalita Sahasranama, both the namavali and the stotram
+
 **v2** (future):
-- Arati flame + audio
-- Lalita Sahasranama (1000 names)
-- Sound assets (bhajans, recordings)
+- Sound assets beyond the two beds — blocked on copyright, see CLAUDE.md
 - Additional photos
