@@ -17,6 +17,12 @@
   (elementFromPoint at each button's centre), and that audio actually reaches
   the graph (an AnalyserNode spliced into every gain the module creates).
 
+  Warm the cache first (curl the .opus once) and give it a generous
+  --virtual-time-budget. Virtual time races ahead of the real network, so a
+  cold 775 KB fetch reports a false signalRMS=0 with loading stuck on — which
+  looks exactly like the resume() bug this was written to catch. Re-run warm
+  before believing a zero.
+
   The iframe needs allow="autoplay" or the context stays blocked. Note that a
   synthetic MouseEvent is not user activation, so this cannot reproduce the
   gesture half of the autoplay policy — only a real click can.
