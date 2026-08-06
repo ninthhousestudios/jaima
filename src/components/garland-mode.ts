@@ -114,8 +114,9 @@ const BOX = 0.17;
 /** Nodes per strand, capped so a jasmine strand cannot run away with the loop. */
 const MAX_NODES = 120;
 
-/** How near the frame's top a drop has to land to hang on it instead. */
-const SNAP = 0.55;
+/** Margin around the frame within which a drop hangs on it, as a fraction
+ *  of the frame's width. */
+const SNAP = 0.35;
 
 /** Each garland hung on the frame sits below the last, as real ones stack. */
 const STACK_STEP = 0.34;
@@ -243,10 +244,52 @@ export function initGarlandMode(altar: HTMLElement, room: HTMLElement) {
     const base = altar.getBoundingClientRect();
     const frame = altar.querySelector<HTMLElement>('.altar-frame');
     if (!frame) {
-      return { left: base.width * 0.3, right: base.width * 0.7, top: base.height * 0.2 };
+      return {
+        left: base.width * 0.3,
+        right: base.width * 0.7,
+        top: base.height * 0.2,
+        bottom: base.height * 0.8,
+      };
     }
     const r = frame.getBoundingClientRect();
-    return { left: r.left - base.left, right: r.right - base.left, top: r.top - base.top };
+    return {
+      left: r.left - base.left,
+      right: r.right - base.left,
+      top: r.top - base.top,
+      bottom: r.bottom - base.top,
+    };
+  }
+
+  /**
+   * True if letting go here should hang the garland on the frame.
+   *
+   * The whole frame, generously margined — not a band across its top. Dropping
+   * a garland over her picture means "hang this on her picture"; the ends
+   * going to the top corners is a detail of how a garland hangs, not something
+   * the hand should have to aim at. An earlier version tested only the top
+   * edge, so a drop over the middle of the photo fell through to free
+   * placement and dangled there in a narrow U.
+   */
+  function overFrame(x: number, y: number): boolean {
+    const f = frameRect();
+    const margin = (f.right - f.left) * SNAP;
+    return (
+      x > f.left - margin && x < f.right + margin && y > f.top - margin && y < f.bottom + margin
+    );
+  }
+
+  /** Where the ends go for the nth garland hung on the frame. */
+  function framePins(stack: number, box: number) {
+    const f = frameRect();
+    const width = f.right - f.left;
+    const drop = stack * box * STACK_STEP;
+    const inset = width * (0.06 + stack * 0.03);
+    return { ax: f.left + inset, ay: f.top + drop, bx: f.right - inset, by: f.top + drop };
+  }
+
+  /** How many already hang there, so the next one lands below them. */
+  function stackFor(g: Garland): number {
+    return garlands.filter(o => o !== g && o.stack !== null).length;
   }
 
   function boxSize(): number {
@@ -287,29 +330,40 @@ export function initGarlandMode(altar: HTMLElement, room: HTMLElement) {
 
   /** Hang a garland over the frame's top corners, below any already there. */
   function hangOnFrame(g: Garland, stack: number) {
-    const f = frameRect();
-    const width = f.right - f.left;
-    const drop = stack * g.box * STACK_STEP;
-    const inset = width * (0.06 + stack * 0.03);
+    const p = framePins(stack, g.box);
     g.stack = stack;
-    g.rope.drape(f.left + inset, f.top + drop, f.right - inset, f.top + drop);
+    g.rope.drape(p.ax, p.ay, p.bx, p.by);
   }
 
   function place(g: Garland, x: number, y: number) {
-    const f = frameRect();
-    const width = f.right - f.left;
-    // Generous, because hanging it on her photo is the point of the mode and
-    // a near miss should not leave it dangling off a nail beside the frame.
-    const near =
-      x > f.left - width * SNAP &&
-      x < f.right + width * SNAP &&
-      Math.abs(y - f.top) < width * SNAP;
-    if (near) {
-      hangOnFrame(g, garlands.filter(o => o !== g && o.stack !== null).length);
+    if (overFrame(x, y)) {
+      hangOnFrame(g, stackFor(g));
     } else {
       g.stack = null;
       g.rope.hold(x, y);
     }
+  }
+
+  /**
+   * While a garland is in hand and over the frame, show the line it will hang
+   * on. Without it the snap is invisible until you have already let go, and
+   * the two outcomes — draped on the frame, or dangling where you dropped it —
+   * look nothing alike.
+   */
+  function drawHint(g: Garland) {
+    if (!overFrame(pointer.x, pointer.y)) return;
+    const p = framePins(stackFor(g), g.box);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 196, 122, 0.42)';
+    ctx.lineWidth = Math.max(1.5, g.box * 0.05);
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(255, 168, 78, 0.85)';
+    ctx.shadowBlur = g.box * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(p.ax, p.ay);
+    ctx.lineTo(p.bx, p.by);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function draw() {
@@ -321,6 +375,10 @@ export function initGarlandMode(altar: HTMLElement, room: HTMLElement) {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
+
+    // Under the garlands, so the one in hand is never obscured by its own hint.
+    const inHand = carried ?? dragged;
+    if (inHand) drawHint(inHand);
 
     for (const g of garlands) {
       const nodes = g.rope.nodes;
