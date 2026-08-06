@@ -2,7 +2,6 @@ node_modules/
 public/
 .astro/
 docs/*.jpg
-docs/japa/
 # Audio masters that render-ocean.py reads. Tens of MB each; the loops it
 # writes to static/audio/ are what ships, same as docs/*.jpg above.
 docs/*.wav

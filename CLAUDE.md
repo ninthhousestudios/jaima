@@ -181,9 +181,9 @@ the browser-tab mantra also reads); output is `static/data/japa/`, one
 `index.json` catalogue plus `{mantra}-{script}.json` per text, fetched on first
 use because the sahasranama alone is a hundred times the trishati.
 
-`docs/japa/` is gitignored, like the ocean masters — only the built texts ship.
-Unlike the ocean masters they are a few hundred kB of scraped text that has
-since been hand-corrected, so a clone cannot re-run the build.
+`docs/japa/` is tracked, unlike the ocean masters: it is a few hundred kB of
+scraped text that has since been hand-corrected, and without it a clone cannot
+re-run the build.
 
 The sources are scraped and were not uniform — wrapped names, variant readings
 in brackets, a count marker every tenth line, per-script disagreement about
