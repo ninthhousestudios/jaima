@@ -22,7 +22,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
   - `lotus-nav.ts` — SVG bloom nav, mode state machine; exports `Mode` type
   - `photo-mode.ts` — photo cycling with crossfade
-  - `japa-mode.ts` — Lalita Trishati; two views, script toggle
+  - `japa-mode.ts` — five namavalis; mantra picker, two views, script toggle
   - `garland-mode.ts` — SVG garland overlay (v1)
   - `teachings-mode.ts` — Amma quotes
   - `sound-mode.ts` — ambient beds (tanpura, ocean); Web Audio, mixable
@@ -32,6 +32,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 - `tools/audio_loop.py` — shared seamless-loop + web-encode helper (imported,
   hence the underscore)
 - `tools/render-tanpura.py`, `tools/render-ocean.py` — build the sound beds
+- `tools/build-japa.py` — normalises `docs/japa/` into the japa mode's texts
 
 The lotus nav's centre is that cut-out, not a drawn shape, so it is styled
 with filters — `fill`/`stroke` do nothing to an `<image>`. Re-run the script
@@ -136,19 +137,59 @@ v2 wants them.
 
 ## Japa
 
-Two views over the same 300 names, both with play/pause and step forward/back.
-`crawl` (the default) climbs the whole list up the screen; `single` holds one
-name. The slider is a **speed**, 1–10, mapped per view — right is faster in
-both. Don't put a duration back in it.
+Five mantras, chosen from the picker left of the script buttons: Lalita
+trishati (the default), ashtottara, sahasranamavali, the sahasranama stotram,
+and Amma's ashtottara. Each is offered in all three scripts, and the picker
+labels itself in the current one.
 
-`--japa-line` must stay a fixed length. The crawl divides the scroll offset by
-it to know which name it is on, so a font-determined line height drifts the
-counter against the column. `--japa-tilt` and `--japa-perspective` are the
-crawl's geometry and are free to change.
+Two views over whichever is chosen, both with play/pause and step
+forward/back. `crawl` (the default) climbs the whole list up the screen;
+`single` holds one at a time. The slider is a **speed**, 1–10, mapped per view
+— right is faster in both. Don't put a duration back in it.
+
+**Every mantra opens with its dhyana verses and nothing plays until asked.**
+The four Lalita texts share `lalita-dhyanam`; Amma's carries its own. The
+crawl therefore sits at rest with the opening verse parked at the bottom of
+the stage — `REST_ROWS` — rather than at an offset of zero, which would show a
+blank screen. Keep `REST_ROWS` inside the first verse: it is also where
+`single` opens.
+
+### Units and rows
+
+A **unit** is one thing you step through: a dhyana verse, a name, or (in the
+stotram) a couplet. A **row** is one line of the crawl, including the blank
+one that follows a verse. Units span one row or several; rows are all exactly
+`--japa-line` tall, and that is the whole trick — the crawl divides its scroll
+offset by a single constant to find the row, then `rows[i].unit` to find where
+it is. `--japa-line` must stay fixed for the same reason it always did: a
+font-determined height drifts the counter against the column. `--japa-tilt`
+and `--japa-perspective` are free to change.
+
+The counter names the dhyanam rather than numbering it, so `1 / 300` means the
+japa proper has begun.
 
 Nothing in the crawl can be measured while the overlay is `display: none` —
 every height reads 0. That is why `activateJapa()` exists and why
 `handleModeChange` calls it *after* setting `.active`.
+
+### Regenerating the texts
+
+    python3 tools/build-japa.py
+
+Sources are `docs/japa/*.md` (plus `static/data/*.txt` for the trishati, which
+the browser-tab mantra also reads); output is `static/data/japa/`, one
+`index.json` catalogue plus `{mantra}-{script}.json` per text, fetched on first
+use because the sahasranama alone is a hundred times the trishati.
+
+`docs/japa/` is gitignored, like the ocean masters — only the built texts ship.
+Unlike the ocean masters they are a few hundred kB of scraped text that has
+since been hand-corrected, so a clone cannot re-run the build.
+
+The sources are scraped and were not uniform — wrapped names, variant readings
+in brackets, a count marker every tenth line, per-script disagreement about
+which om to use. The tool normalises all of it and then **asserts each name
+count**. That assert is the safety net: an edit that merges or drops a line
+fails the build instead of quietly shortening the japa.
 
 ## Sound
 
@@ -197,7 +238,7 @@ is a separate question and may end up an embedded player.
 ## Key conventions
 
 - All mode overlays use class `mode-overlay` and id `mode-{name}`. The lotus nav toggles `.active` on them.
-- Photos live in `static/images/photos/`, brass renders in `static/images/altar/` (`@2x`/`@3x`). Mantra data in `static/data/` (one name per line, 300 lines each).
+- Photos live in `static/images/photos/`, brass renders in `static/images/altar/` (`@2x`/`@3x`). Mantra sources in `docs/japa/`, built texts in `static/data/japa/`; `static/data/*.txt` is the trishati, one name per line, read directly by `tab-mantra`.
 - `#altar` carries a `z-index`, which is what contains the altar's blend modes to the altar. Removing it makes them bleed through the page.
 - `photo-mode` builds fresh `<img>` elements per crossfade, so they carry no Astro scope attribute. Anything styling them (e.g. `#darshan > img`) must live in the `is:global` block.
 - `static/` is Astro's publicDir (copied verbatim to build output). `public/` is outDir (build artifact, gitignored).

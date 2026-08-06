@@ -1106,6 +1106,15 @@ import Base from '../layouts/Base.astro';
     letter-spacing: 0.03em;
   }
 
+  /* Verse lines — the dhyanam, and the stotram's couplets — run about twice
+     the length of a name, so they get their own size. The height stays
+     --japa-line either way: the crawl counts rows, not units. */
+  .japa-crawl-name.verse {
+    font-size: clamp(0.75rem, 1.65vw, 1.2rem);
+    color: #e8cfad;
+    font-style: italic;
+  }
+
   .japa-name {
     font-size: clamp(1.5rem, 5vw, 3rem);
     color: #f0d8b8;
@@ -1113,6 +1122,15 @@ import Base from '../layouts/Base.astro';
     opacity: 0;
     transition: opacity 0.4s ease;
     letter-spacing: 0.03em;
+    /* A verse arrives with its line breaks in the text node. */
+    white-space: pre-line;
+    margin: 0;
+  }
+
+  .japa-name.verse {
+    font-size: clamp(1rem, 2.6vw, 1.9rem);
+    line-height: 1.7;
+    font-style: italic;
   }
 
   .japa-name.visible {
@@ -1130,7 +1148,8 @@ import Base from '../layouts/Base.astro';
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
     padding: 1.5rem;
     cursor: default;
     background: hsla(0, 0%, 0%, 0.3);
@@ -1140,6 +1159,32 @@ import Base from '../layouts/Base.astro';
   .japa-views {
     display: flex;
     gap: 0.5rem;
+  }
+
+  /* Which mantra, in its own name and its own script — so it sits left of the
+     script buttons that decide how it is written. */
+  .japa-mantra {
+    max-width: 22rem;
+    background: hsla(30, 20%, 30%, 0.5);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #f0d8b8;
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: background 0.3s ease;
+  }
+
+  .japa-mantra:hover {
+    background: hsla(30, 30%, 38%, 0.6);
+  }
+
+  /* The list itself is drawn by the OS, which will not honour the panel's
+     translucency; give it something dark to land on. */
+  .japa-mantra option {
+    background: #1a1208;
+    color: #f0d8b8;
   }
 
   .japa-script,

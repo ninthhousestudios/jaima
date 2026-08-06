@@ -1,0 +1,49 @@
+{
+  "mantras": [
+    {
+      "id": "trishati",
+      "count": 300,
+      "title": {
+        "iast": "śrī lalitā triśatī nāmāvaliḥ",
+        "devanagari": "श्री ललिता त्रिशती नामावलिः",
+        "malayalam": "ശ്രീ ലലിതാ ത്രിശതീ നാമാവലിഃ"
+      }
+    },
+    {
+      "id": "lalita108",
+      "count": 108,
+      "title": {
+        "iast": "śrīlalitāṣṭottaraśatanāmāvaliḥ",
+        "devanagari": "श्रीललिताष्टोत्तरशतनामावलिः",
+        "malayalam": "ശ്രീലലിതാഷ്ടോത്തരശതനാമാവലിഃ"
+      }
+    },
+    {
+      "id": "lalita1000",
+      "count": 1000,
+      "title": {
+        "iast": "śrī lalitā sahasranāmāvalī",
+        "devanagari": "श्री ललिता सहस्रनामावली",
+        "malayalam": "ശ്രീ ലലിതാ സഹസ്രനാമാവലീ"
+      }
+    },
+    {
+      "id": "stotram",
+      "count": 183,
+      "title": {
+        "iast": "śrīlalitāsahasranāmastotram",
+        "devanagari": "श्रीललितासहस्रनामस्तोत्रम्",
+        "malayalam": "ശ്രീലലിതാസഹസ്രനാമസ്തോത്രം"
+      }
+    },
+    {
+      "id": "amma108",
+      "count": 108,
+      "title": {
+        "iast": "śrī mātā āmṛtānandamayī āṣṭottara śatanāmāvalī",
+        "devanagari": "श्री माता आमृतानन्दमयी आष्टोत्तर शतनामावली",
+        "malayalam": "ശ്രീ മാതാ ആമൃതാനന്ദമയീ ആഷ്ടോത്തര ശതനാമാവലീ"
+      }
+    }
+  ]
+}
