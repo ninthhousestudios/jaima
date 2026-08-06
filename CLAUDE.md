@@ -440,8 +440,14 @@ layout.set_text('ब्र', -1)      # 3 codepoints -> 1 glyph shaped, 3 unshap
 
 ## Deploy
 
-GitLab Pages via CI. Push to `master` → builds and deploys to `ജയ്മാ.com`.
-Remote: `pages-gitlab` (gitlab.com:j0sh4rp3/pages.git).
+GitHub Pages via `.github/workflows/deploy.yml`. Push to `master` → builds and
+deploys to `ജയ്മാ.com`. Remote: `jaima-github` (github.com:ninthhousestudios/jaima).
+
+The custom domain lives in the repo's Settings › Pages as `xn--iwc0bc5dwd.com`
+— Punycode, since the field rejects the Malayalam. A custom Actions workflow
+means GitHub ignores any `CNAME` file, so don't add one. `static/.nojekyll` is
+empty and stays: the whole site is one chunk under `public/_astro/`, and Jekyll
+strips underscore-prefixed paths.
 
 ## Design doc
 
