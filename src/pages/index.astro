@@ -1313,12 +1313,6 @@ import Base from '../layouts/Base.astro';
     padding: 1.2rem;
   }
 
-  .sound-placeholder {
-    color: hsla(30, 30%, 60%, 0.6);
-    font-size: 0.85rem;
-    margin-bottom: 0.8rem;
-  }
-
   .sound-tracks {
     display: flex;
     flex-direction: column;
@@ -1328,11 +1322,29 @@ import Base from '../layouts/Base.astro';
   .sound-track {
     background: hsla(30, 20%, 30%, 0.4);
     border: 1px solid hsla(30, 30%, 40%, 0.3);
-    color: hsla(30, 20%, 50%, 0.5);
+    color: hsla(30, 30%, 68%, 0.85);
     padding: 0.4rem 1rem;
     border-radius: 4px;
     font-size: 0.85rem;
-    cursor: not-allowed;
+    cursor: pointer;
     text-align: left;
+    transition: color 0.4s, border-color 0.4s, box-shadow 0.4s;
+  }
+
+  .sound-track:hover:not([disabled]) {
+    border-color: hsla(35, 50%, 55%, 0.5);
+    color: hsla(35, 45%, 78%, 0.95);
+  }
+
+  /* A playing bed reads as a lit lamp, on the same warm axis as the flames. */
+  .sound-track.playing {
+    border-color: hsla(38, 70%, 60%, 0.6);
+    color: hsla(38, 65%, 80%, 1);
+    box-shadow: 0 0 12px hsla(35, 80%, 55%, 0.18);
+  }
+
+  .sound-track[disabled] {
+    color: hsla(30, 20%, 50%, 0.4);
+    cursor: not-allowed;
   }
 </style>
