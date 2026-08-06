@@ -25,10 +25,13 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `japa-mode.ts` — Lalita Trishati; two views, script toggle
   - `garland-mode.ts` — SVG garland overlay (v1)
   - `teachings-mode.ts` — Amma quotes
-  - `sound-mode.ts` — scaffold, no audio assets yet
+  - `sound-mode.ts` — ambient beds (tanpura, ocean); Web Audio, mixable
   - `tab-mantra.ts` — random Lalita name in browser tab title on blur
 - `tools/altar-assets.py` — Blender script generating the brass altar furniture
 - `tools/lotus-knob.py` — cuts the nav's centre flower out of `docs/lotus.jpg`
+- `tools/audio_loop.py` — shared seamless-loop + web-encode helper (imported,
+  hence the underscore)
+- `tools/render-tanpura.py`, `tools/render-ocean.py` — build the sound beds
 
 The lotus nav's centre is that cut-out, not a drawn shape, so it is styled
 with filters — `fill`/`stroke` do nothing to an `<image>`. Re-run the script
@@ -146,6 +149,50 @@ crawl's geometry and are free to change.
 Nothing in the crawl can be measured while the overlay is `display: none` —
 every height reads 0. That is why `activateJapa()` exists and why
 `handleModeChange` calls it *after* setting `.active`.
+
+## Sound
+
+Two ambient beds, tanpura and ocean, toggled independently — they mix, because
+a drone over the sea is what Amritapuri actually sounds like. **Playback does
+not follow the overlay**: the panel is a light switch, not the lamp, so leaving
+sound mode for japa or the altar leaves the bed running. Buffers are fetched on
+first play, never at init.
+
+Two things make the loops seamless and **both have to hold**:
+
+1. Playback goes through `decodeAudioData` + `AudioBufferSourceNode`, not
+   `<audio loop>`. Opus and AAC both carry encoder padding that `<audio loop>`
+   replays as a gap at the seam; decoding to a buffer strips it.
+2. The renders are cut so their seam is inaudible — see below.
+
+Regenerate with `python3 tools/render-tanpura.py` / `render-ocean.py`. Both
+write `.opus` and `.m4a` to `static/audio/`; `tools/audio_loop.py` owns the
+crossfade and the encode, so fixes belong there rather than in either script.
+
+### Why the loop lengths are what they are
+
+A loop is made by folding a segment's tail back over its head with an
+equal-power crossfade — so the material at the seam is overlaid with the
+material one loop later, and the two have to match.
+
+- **Tanpura**: `LOOP_S` must be an exact multiple of the pluck cycle
+  (`1 / pluck_rate`). 100 s is 9 cycles at 0.09. Miss the multiple and the
+  plucks land at a different phase across the seam — an audible hitch once a
+  loop. **Change `pluck_rate` and you must re-pick the multiple.**
+- **Ocean**: no fixed period, so `best_loop()` searches start *and* length,
+  scoring candidates by band-envelope mismatch. Length is searched, not fixed,
+  because a periodic swell wants whole periods just like the tanpura: ocean2
+  scores 2.4 dB at 110 s and 7.3 dB at 115 s. Under ~2 dB is inaudible.
+
+Sources: the tanpura is justifier's string model, unchanged, via
+`justifier/native/experiments/temple_tanpura.dsp` — that file only adds reverb
+(`component()`, not a copy), and the languid character is entirely in the
+parameters `render-tanpura.py` passes. The ocean masters are `docs/ocean*.wav`
+/`.flac`, gitignored like `docs/*.jpg`; only the loops ship.
+
+No bhajans. The recordings belong to the Math and the CC tags on archive.org
+copies are uploader-applied, so there is nothing freely shippable. Amma's arati
+is a separate question and may end up an embedded player.
 
 ## Key conventions
 
