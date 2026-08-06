@@ -12,11 +12,23 @@
 // to a whole number of pluck cycles to match (see tools/render-tanpura.py) —
 // both halves of that have to hold or the seam becomes audible.
 
-type TrackId = 'tanpura';
+type TrackId = 'tanpura' | 'ocean';
 
 // Opus first for size; AAC for anything that can't decode Opus.
+// The sea is ocean1, the steadier of the two recordings in docs/ — a steady
+// envelope is what hides a loop. ocean2 is rendered too and is a swap away.
 const SOURCES: Record<TrackId, string[]> = {
   tanpura: ['/audio/tanpura.opus', '/audio/tanpura.m4a'],
+  ocean: ['/audio/ocean1.opus', '/audio/ocean1.m4a'],
+};
+
+// Beds are mixable, not exclusive — a drone over the sea is what Amritapuri
+// actually sounds like. Levels balance them by ear rather than by peak: the
+// ocean is dense broadband noise and reads far louder than the tanpura at the
+// same amplitude, so it sits well under.
+const LEVELS: Record<TrackId, number> = {
+  tanpura: 1.0,
+  ocean: 0.55,
 };
 
 const FADE_S = 3.0; // a drone should arrive and leave, not switch
@@ -84,7 +96,7 @@ async function start(id: TrackId) {
   const now = audio().currentTime;
   bed.gain.gain.cancelScheduledValues(now);
   bed.gain.gain.setValueAtTime(bed.gain.gain.value, now);
-  bed.gain.gain.linearRampToValueAtTime(1, now + FADE_S);
+  bed.gain.gain.linearRampToValueAtTime(LEVELS[id], now + FADE_S);
 }
 
 function stop(id: TrackId) {
@@ -110,8 +122,7 @@ export function initSoundMode(container: HTMLElement) {
     <div class="sound-display">
       <div class="sound-tracks">
         <button class="sound-track" data-track="tanpura" aria-pressed="false">Tanpura</button>
-        <button class="sound-track" disabled>Bhajans</button>
-        <button class="sound-track" disabled>Ocean</button>
+        <button class="sound-track" data-track="ocean" aria-pressed="false">Ocean</button>
       </div>
     </div>
   `;
