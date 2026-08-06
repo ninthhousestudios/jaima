@@ -369,9 +369,14 @@ export function initGarlandMode(altar: HTMLElement, room: HTMLElement) {
   function draw() {
     const rect = altar.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    if (canvas.width !== Math.round(rect.width * dpr)) {
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
+    const w = Math.round(rect.width * dpr);
+    const h = Math.round(rect.height * dpr);
+    // Both dimensions, not just the width: a window that changes height alone
+    // would otherwise keep a stale backing store and the whole altar's worth
+    // of garlands would draw stretched vertically.
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
