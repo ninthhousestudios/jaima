@@ -241,12 +241,16 @@ While one is in hand and inside that region a warm line shows where it will
 land, because otherwise the snap is invisible until after you have let go and
 the two outcomes look nothing alike.
 
-`length` in `KINDS` is the number to be careful with: it is the strand length
-as a multiple of the frame's width, and a strand L across a span W drapes to
-about `sqrt((L/2)² - (W/2)²)` below the pins. At 1.95 the loop crosses her
-face; the shipped values put it near mid-frame, around the neck, clear of the
-face the whole room is built to lead the eye to. `BOX` sets flower size,
-`spacing` how densely the strand is strung.
+`drop` in `KINDS` is how far down the frame a garland reaches, as a fraction
+of the frame's *height*, measured to the bottom of the flowers. The shipped
+values put it near the bottom of the frame — well clear of her face, which a
+shorter drape crosses in some photos. The strand length that produces it is
+derived (`strandFor`): a strand L across a span W bottoms out about
+`sqrt((L/2)² - (W/2)²)` below the pins, and these hang close enough to that
+limit that inverting it lands within a percent. Keep the direction of that
+dependency — a hardcoded length goes stale against the frame's proportions and
+`PIN_INSET`, and it fails by creeping up over her face. `BOX` sets flower
+size, `spacing` how densely the strand is strung.
 
 The animation loop stops once every garland has settled and restarts on the
 next touch, so a still altar costs nothing. `Rope.step()` measures motion

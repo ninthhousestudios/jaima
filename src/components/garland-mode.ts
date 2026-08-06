@@ -45,17 +45,17 @@ interface Kind {
    */
   readonly spacing: number;
   /**
-   * Strand length, as a multiple of the frame's width.
+   * How far down the frame the garland reaches, as a fraction of the frame's
+   * height, measured to the bottom of the flowers.
    *
-   * Sets how deep the garland hangs, and it is the one number here worth
-   * being careful with. A strand of L across a span of W drapes to about
-   * sqrt((L/2)^2 - (W/2)^2) below the pins, so 1.95 puts the bottom of the
-   * loop three quarters of the way down the photo and straight across her
-   * face. These land it near the middle of the frame — around her neck,
-   * where a garland goes, and clear of the face the whole room is built to
-   * lead the eye to.
+   * Stated this way round on purpose. What matters is where the loop bottoms
+   * out against her picture, and the strand length that produces it is
+   * arithmetic — see `strandFor`. Given as a length it goes stale the moment
+   * the frame's proportions or the pin inset change, and the failure mode is
+   * the loop creeping up across her face, which is the one place in the room
+   * the eye is built to land.
    */
-  readonly length: number;
+  readonly drop: number;
 }
 
 const KINDS: readonly Kind[] = [
@@ -71,7 +71,7 @@ const KINDS: readonly Kind[] = [
       ['leaf-a', 1],
     ],
     spacing: 0.34,
-    length: 1.68,
+    drop: 0.92,
   },
   {
     id: 'rose',
@@ -85,7 +85,7 @@ const KINDS: readonly Kind[] = [
       ['leaf-b', 1],
     ],
     spacing: 0.36,
-    length: 1.64,
+    drop: 0.9,
   },
   {
     id: 'jasmine',
@@ -102,7 +102,7 @@ const KINDS: readonly Kind[] = [
       ['leaf-b', 1],
     ],
     spacing: 0.14,
-    length: 1.76,
+    drop: 0.95,
   },
 ];
 
@@ -111,8 +111,14 @@ const SPRITE_NAMES = Array.from(new Set(KINDS.flatMap(k => k.pool.map(p => p[0])
 /** Sprite box, as a fraction of the frame's width. Sets how big garlands read. */
 const BOX = 0.17;
 
-/** Nodes per strand, capped so a jasmine strand cannot run away with the loop. */
-const MAX_NODES = 120;
+/**
+ * Nodes per strand, capped so a jasmine strand cannot run away with the loop.
+ *
+ * The cap shortens the strand rather than thinning it — the segment length is
+ * fixed — so hitting it means the garland stops reaching its `drop`. The
+ * shipped kinds ask for at most ~100 at a 4:5 frame; leave headroom.
+ */
+const MAX_NODES = 160;
 
 /** Margin around the frame within which a drop hangs on it, as a fraction
  *  of the frame's width. */
@@ -120,6 +126,11 @@ const SNAP = 0.35;
 
 /** Each garland hung on the frame sits below the last, as real ones stack. */
 const STACK_STEP = 0.34;
+
+/** How far in from the frame's edges the ends are hung, per side, as a
+ *  fraction of its width — and how much further in for each one already there. */
+const PIN_INSET = 0.06;
+const PIN_STAGGER = 0.03;
 
 interface Sprite {
   readonly front: HTMLImageElement;
@@ -283,7 +294,7 @@ export function initGarlandMode(altar: HTMLElement, room: HTMLElement) {
     const f = frameRect();
     const width = f.right - f.left;
     const drop = stack * box * STACK_STEP;
-    const inset = width * (0.06 + stack * 0.03);
+    const inset = width * (PIN_INSET + stack * PIN_STAGGER);
     return { ax: f.left + inset, ay: f.top + drop, bx: f.right - inset, by: f.top + drop };
   }
 
@@ -297,14 +308,30 @@ export function initGarlandMode(altar: HTMLElement, room: HTMLElement) {
     return (f.right - f.left) * BOX;
   }
 
-  function build(kind: Kind, at: { x: number; y: number }): Garland {
+  /**
+   * How long a strand has to be to reach `kind.drop` down the frame.
+   *
+   * A strand of length L hung across a span W bottoms out
+   * sqrt((L/2)^2 - (W/2)^2) below its pins: the deepest a fixed length can
+   * reach is both halves pulled straight, and once these have settled under
+   * their own weight that is very nearly what they do — the shipped drape
+   * matched the formula to within a percent when it was still a hardcoded
+   * length. So invert it.
+   *
+   * The bottom of the *flowers* is what lands on the drop, hence the half box:
+   * the last node sits half a sprite above the point the garland reaches.
+   */
+  function strandFor(kind: Kind, box: number): number {
     const f = frameRect();
+    const span = (f.right - f.left) * (1 - 2 * PIN_INSET);
+    const depth = Math.max(span * 0.1, (f.bottom - f.top) * kind.drop - box / 2);
+    return 2 * Math.hypot(depth, span / 2);
+  }
+
+  function build(kind: Kind, at: { x: number; y: number }): Garland {
     const box = boxSize();
     const segment = Math.max(2, box * kind.spacing);
-    const count = Math.min(
-      MAX_NODES,
-      Math.max(12, Math.round((kind.length * (f.right - f.left)) / segment)),
-    );
+    const count = Math.min(MAX_NODES, Math.max(12, Math.round(strandFor(kind, box) / segment)));
 
     // Gravity in pixels per step squared, scaled by the segment so that a
     // jasmine strand of many short links and a marigold strand of fewer long
