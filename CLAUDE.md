@@ -491,6 +491,11 @@ without it. It is unity gain at ordinary levels — a lone strike passes
 untouched — and deliberately not a `DynamicsCompressorNode`, whose implicit
 makeup gain would reboost everything.
 
+`MAX_RINGING` caps how many strikes sound at once: past it the oldest tail
+is faded out under the strike that just landed. Unbounded, the auto-ring
+accumulates two-hundred-odd live oscillators and the audio thread misses
+deadlines — heard as intermittent stutter, nothing logged anywhere.
+
 ## Fonts
 
 `static/fonts/` carries Noto Sans Devanagari and Noto Sans Malayalam as woff2

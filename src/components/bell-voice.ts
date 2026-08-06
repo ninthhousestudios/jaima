@@ -106,8 +106,27 @@ function bellBus(ctx: AudioContext): WaveShaperNode {
 
 let tick: AudioBuffer | null = null;
 
-/** Master gains of strikes still sounding, so a closing hand can reach them. */
-const ringing = new Set<GainNode>();
+/**
+ * Strikes still sounding — the master gain a closing hand chokes, and the
+ * oscillators an eviction must stop.
+ */
+interface Ring {
+  out: GainNode;
+  oscs: OscillatorNode[];
+}
+
+const ringing = new Set<Ring>();
+
+/**
+ * How many strikes may sound at once. The resonance of strikes over strikes
+ * is the bell's best quality and it stays: what the auto-ring layers is the
+ * recent dozen tails, and those all fit. But unbounded, four full-force
+ * strikes a second times a twelve-second prime is two-hundred-odd live
+ * oscillators, and when the audio thread misses its deadline the whole
+ * output stutters. Past the cap the OLDEST tail is faded out in 50 ms —
+ * always under a brand-new strike at the same pitch, so its exit is masked.
+ */
+const MAX_RINGING = 14;
 
 /**
  * Called from a pointerdown, like the beds' warm: the AudioContext must be
@@ -138,6 +157,7 @@ export function strikeBell(force: number): void {
   lp.frequency.value = CUTOFF_LO + force * (CUTOFF_HI - CUTOFF_LO);
   lp.connect(out).connect(bellBus(ctx));
 
+  const oscs: OscillatorNode[] = [];
   let last: OscillatorNode | null = null;
   let longest = 0;
   for (const [freq, level, tau, beat] of MODES) {
@@ -146,15 +166,18 @@ export function strikeBell(force: number): void {
     // does not run identically strike after strike.
     const amp = level * Math.pow(10, (Math.random() * 4 - 2) / 20);
     const parts = beat > 0.05 ? [freq - beat / 2, freq + beat / 2] : [freq];
+    // One envelope per mode; a pair's two sines sum into it.
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(amp / parts.length, t0);
+    gain.gain.setTargetAtTime(0, t0, tau);
+    gain.connect(lp);
     for (const f of parts) {
       const osc = ctx.createOscillator();
       osc.frequency.value = f + Math.random() * 0.6 - 0.3;
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(amp / parts.length, t0);
-      gain.gain.setTargetAtTime(0, t0, tau);
-      osc.connect(gain).connect(lp);
+      osc.connect(gain);
       osc.start(t0);
       osc.stop(t0 + tau * TAIL);
+      oscs.push(osc);
       if (tau > longest) {
         longest = tau;
         last = osc;
@@ -171,13 +194,27 @@ export function strikeBell(force: number): void {
     src.start(t0);
   }
 
-  ringing.add(out);
+  const ring: Ring = { out, oscs };
+  ringing.add(ring);
   if (last) {
-    // The prime outlives everything else; its end is the strike's end.
+    // The prime outlives everything else; its end is the strike's end —
+    // whether it ran its course or an eviction moved its stop time up.
     last.onended = () => {
-      ringing.delete(out);
+      ringing.delete(ring);
       out.disconnect();
     };
+  }
+
+  if (ringing.size > MAX_RINGING) {
+    // Sets iterate in insertion order, so the first entry is the oldest —
+    // which may be a choked strike still draining, and evicting those first
+    // is exactly right.
+    for (const oldest of ringing) {
+      ringing.delete(oldest);
+      oldest.out.gain.setTargetAtTime(0, t0, 0.05);
+      for (const osc of oldest.oscs) osc.stop(t0 + 0.3);
+      break;
+    }
   }
 }
 
@@ -188,7 +225,7 @@ export function strikeBell(force: number): void {
  */
 export function chokeBell(): void {
   const now = audio().currentTime;
-  for (const out of ringing) {
-    out.gain.setTargetAtTime(0, now, 0.06);
+  for (const ring of ringing) {
+    ring.out.gain.setTargetAtTime(0, now, 0.06);
   }
 }
