@@ -20,6 +20,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `arati-mode.ts` — the arati recording, and the hand that waves either lamp
   - `puja-bell.ts` — the Nandi bell on the ledge; swing it, or leave it ringing
   - `audio.ts` — the one AudioContext, codec choice and buffer cache
+  - `bell-voice.ts` — the ghanta's strike, synthesised from measured modes
   - `dom.ts` — `el()` and `flame()`, shared by anything that builds brass
   - `altar-flowers.ts` — seeded procedural SVG (marigold, rose, jasmine, thoranam)
   - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
@@ -39,6 +40,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 - `tools/audio_loop.py` — shared seamless-loop + web-encode helper (imported,
   hence the underscore)
 - `tools/render-tanpura.py`, `tools/render-ocean.py` — build the sound beds
+- `tools/bell-modes.py` — measures the ghanta recording's modes for `bell-voice.ts`
 - `tools/build-japa.py` — normalises `docs/japa/` into the japa mode's texts
 
 The lotus nav's centre is that cut-out, not a drawn shape, so it is styled
@@ -461,18 +463,27 @@ not noticeable; a bell's *rate* is the first thing an ear hears.
 
 ### The sound
 
-`static/audio/bell.opus` and `bell.m4a` — a single strike, not a loop. Drop the
-recording in at those two names and it plays; **the file is not in the repo
-yet**, and until it is the bell swings silently, which is deliberate. Encode
-whatever you find with the `encode()` in `tools/audio_loop.py`, the same helper
-the beds use.
+Synthesised, in `bell-voice.ts` — no recording ships. A struck bell is a set
+of decaying modes, so its whole voice is the `MODES` table: frequency, level,
+decay and beat per mode, **measured from a real ghanta** by
+`tools/bell-modes.py` (source `docs/ganta-bell.mp3`, gitignored like the
+ocean masters). Regenerate the table with the tool rather than hand-editing
+frequencies; levels and beats are fair game for taste. The tool also renders
+`docs/bell-preview.wav` from the same model — audition changes there, against
+the reference, before trusting them in the browser.
 
-Playback shares `audio.ts` with the beds: one AudioContext, one codec choice,
-one fetch-decode cache. A strike is a fresh `AudioBufferSourceNode` each time,
-gained by the speed at the turn and detuned a few percent, because an
-`<audio>` element cannot overlap a sound with itself and a bell rung fast is one
-strike ringing on into the next. Fetched on the first touch of the bell, never
-at init — a pointerdown is a user gesture, so the context is created inside one.
+The synth buys three things a sample cannot do, and they are the point:
+force drives a lowpass cutoff, so a soft swing is a dark ting and a hard
+shake a bright clang; each strike wobbles every mode's level a couple of dB
+(the sample path faked variety by shifting playbackRate, i.e. the bell's
+pitch — the one thing a real bell never varies); and clicking a ringing bell
+chokes the sounding tails along with the swing — `chokeBell` and `STOP_D`
+are one gesture heard and seen.
+
+It shares the one AudioContext in `audio.ts` with the beds. Nothing is built
+at init: `warmBell` runs on the first pointerdown — a user gesture, so the
+context may be created inside it — and each strike is a dozen short-lived
+oscillator nodes that stop a few time-constants in.
 
 ## Fonts
 

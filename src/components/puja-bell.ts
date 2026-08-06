@@ -1,4 +1,4 @@
-import { audio, load } from './audio';
+import { chokeBell, strikeBell, warmBell } from './bell-voice';
 import { el } from './dom';
 
 /**
@@ -49,12 +49,6 @@ import { el } from './dom';
  * `aspect-ratio: 732 / 1536` on `.puja-bell` in index.astro.
  */
 const GRIP = { x: 0.5, y: 0.398 };
-
-/** Josh's sample. Missing is not fatal — see `warm`. */
-const SOURCES = ['/audio/bell.opus', '/audio/bell.m4a'];
-
-/** Loudest a single strike is allowed to be, before the swing scales it. */
-const LEVEL = 0.7;
 
 /**
  * How much of the gap to the hand the bell closes each frame.
@@ -165,50 +159,6 @@ export function buildPujaBell(parent: HTMLElement, altar: HTMLElement): PujaBell
   img.className = 'puja-bell-img';
   root.appendChild(img);
 
-  // --- its voice ---
-
-  let sample: AudioBuffer | null = null;
-  let silent = false;
-
-  /**
-   * Fetch the strike the first time a hand reaches for the bell, never at init
-   * — the same rule the beds follow, and a pointerdown is a user gesture, so
-   * the AudioContext is created inside one.
-   *
-   * A bell with no sample still swings. That is deliberate: the sample is a
-   * recording Josh drops in, and a missing file should cost the room a sound,
-   * not the ability to pick the bell up.
-   */
-  function warm() {
-    if (sample || silent) return;
-    // Never awaited. A context blocked by the autoplay policy leaves this
-    // promise pending for ever rather than rejecting it.
-    void audio().resume();
-    load(SOURCES)
-      .then(buffer => {
-        sample = buffer;
-      })
-      .catch(err => {
-        silent = true;
-        console.warn('bell: no sample, ringing silently', err);
-      });
-  }
-
-  /** One clapper strike. `force` is 0..1, read off the speed at the turn. */
-  function strike(force: number) {
-    if (!sample) return;
-    const ctx = audio();
-    const source = ctx.createBufferSource();
-    source.buffer = sample;
-    // A hand-rung bell is never struck twice identically. Without this the ear
-    // hears one recording retriggered, which is exactly what it is.
-    source.playbackRate.value = 0.97 + Math.random() * 0.06;
-    const gain = ctx.createGain();
-    gain.gain.value = LEVEL * force;
-    source.connect(gain).connect(ctx.destination);
-    source.start();
-  }
-
   // --- the swing ---
 
   /** Offset from where it stands on the ledge, px, and where it is heading. */
@@ -261,7 +211,7 @@ export function buildPujaBell(parent: HTMLElement, altar: HTMLElement): PujaBell
     // The turn of the swing is where the clapper arrives.
     if (before * omega < 0) {
       if (peak > STRIKE_MIN && now - lastStrike > STRIKE_GAP) {
-        strike(clamp(peak / 4, 0.18, 1));
+        strikeBell(clamp(peak / 4, 0.18, 1));
         lastStrike = now;
       }
       peak = 0;
@@ -318,7 +268,10 @@ export function buildPujaBell(parent: HTMLElement, altar: HTMLElement): PujaBell
     // Turning it off is a hand closing round the bell, not a hand letting go.
     stopping = !on;
     root.classList.toggle('ringing', on);
-    if (on) warm();
+    if (on) warmBell();
+    // The hand that stills the swing muffles the ring with it — STOP_D and
+    // the choke are the same gesture heard twice.
+    else chokeBell();
   }
 
   root.addEventListener('pointerdown', e => {
@@ -351,7 +304,7 @@ export function buildPujaBell(parent: HTMLElement, altar: HTMLElement): PujaBell
     stopping = false;
     root.classList.add('lifted');
     root.setPointerCapture(e.pointerId);
-    warm();
+    warmBell();
     run();
   });
 
