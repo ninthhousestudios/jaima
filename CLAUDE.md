@@ -485,6 +485,12 @@ at init: `warmBell` runs on the first pointerdown — a user gesture, so the
 context may be created inside it — and each strike is a dozen short-lived
 oscillator nodes that stop a few time-constants in.
 
+Every strike leaves through a tanh saturation bus (`bellBus`), because the
+auto-ring stacks a dozen full-force tails and the sum clips digitally
+without it. It is unity gain at ordinary levels — a lone strike passes
+untouched — and deliberately not a `DynamicsCompressorNode`, whose implicit
+makeup gain would reboost everything.
+
 ## Fonts
 
 `static/fonts/` carries Noto Sans Devanagari and Noto Sans Malayalam as woff2

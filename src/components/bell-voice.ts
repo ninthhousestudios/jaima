@@ -71,6 +71,39 @@ const TICK_LEVEL = 0.35;
  * hundreds of live nodes. */
 const TAIL = 4;
 
+/**
+ * The saturation bus every strike passes through on its way out.
+ *
+ * The auto-ring lands a full-force strike at every turn of the swing — about
+ * four a second — and the prime rings for three, so a dozen tails sum on top
+ * of each other and the total walks past full scale, where it would clip
+ * digitally: the "sometimes it distorts" of a bell left ringing. A tanh
+ * curve is unity gain at ordinary levels, so a lone strike passes untouched,
+ * and folds the dense roar smoothly under a ceiling instead. Not a
+ * DynamicsCompressorNode, deliberately: that node applies an implicit makeup
+ * gain derived from its knobs, which would quietly reboost everything.
+ */
+const SAT = 1.5;
+
+let bus: WaveShaperNode | null = null;
+
+function bellBus(ctx: AudioContext): WaveShaperNode {
+  if (!bus) {
+    bus = ctx.createWaveShaper();
+    const curve = new Float32Array(257);
+    for (let i = 0; i < curve.length; i++) {
+      const x = (i / (curve.length - 1)) * 2 - 1;
+      curve[i] = Math.tanh(SAT * x) / SAT;
+    }
+    bus.curve = curve;
+    // The curve bends, so it makes harmonics; without oversampling they
+    // alias back under Nyquist as inharmonic grit.
+    bus.oversample = '4x';
+    bus.connect(ctx.destination);
+  }
+  return bus;
+}
+
 let tick: AudioBuffer | null = null;
 
 /** Master gains of strikes still sounding, so a closing hand can reach them. */
@@ -103,7 +136,7 @@ export function strikeBell(force: number): void {
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
   lp.frequency.value = CUTOFF_LO + force * (CUTOFF_HI - CUTOFF_LO);
-  lp.connect(out).connect(ctx.destination);
+  lp.connect(out).connect(bellBus(ctx));
 
   let last: OscillatorNode | null = null;
   let longest = 0;
