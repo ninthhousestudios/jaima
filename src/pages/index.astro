@@ -1259,6 +1259,16 @@ import Base from '../layouts/Base.astro';
   .garland-canvas {
     position: absolute;
     inset: 0;
+    /* Not redundant with inset: 0, and leaving them off is a real bug. A
+       canvas is a replaced element, so an absolutely positioned one with
+       width: auto takes its *intrinsic* size — the backing store — rather
+       than filling its containing block. The backing store is sized in device
+       pixels, so on a 1.25x display the canvas laid out 25% too wide, anchored
+       top-left, and every garland was drawn scaled and offset off the frame.
+       Invisible at dpr 1, which is why it survived the first round of
+       testing. #particles carries the same pair for the same reason. */
+    width: 100%;
+    height: 100%;
     z-index: 7;
     /* Scenery by default. Only inside garland mode does it take the pointer,
        or it would swallow every click meant for the lotus. */
