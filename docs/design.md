@@ -112,12 +112,23 @@ Available photos (from `~/w/wallpaper/`):
 
 #### Garland
 
-**v1**: Select garland mode → a garland image/SVG composites over the photo
-with a gentle draping animation. A few garland styles (jasmine, rose, mixed)
-selectable via a small radial sub-menu near the lotus. Simple, shippable.
+**Shipped**: a panel bottom-left spawns a garland into your hand; you carry it
+across the altar and click to hang it. Any number of them, three kinds
+(marigold, rose, mullapoo), and Clear is the only thing that takes them down —
+leaving the mode does not.
 
-**v2**: Drag-to-place or physics-based rope/cloth drape simulation.
-As realistic as possible. Three.js.
+The flowers are individually rendered in Blender and threaded onto a Verlet
+rope, rather than composited as finished garland images. That is what makes
+the offering read as one: held at a single point the strand hangs in a long
+narrow U, and released over the frame's two top corners it spreads into a wide
+drape, because the strand's length does not change when the pins move apart.
+
+Hanging it on the frame rather than round her neck is what is actually done
+with a framed photo at a shrine, so the one thing a flat photo cannot support
+was never needed.
+
+**Still open**: per-flower collision so stacked garlands rest on each other
+rather than interpenetrating; a swing impulse when the room is entered.
 
 #### Japa
 
@@ -177,7 +188,7 @@ IAST/Devanagari/Malayalam). Runs on both threshold and room.
 
 - **Astro**: Static build, zero JS by default, component islands for
   interactivity. The room is a JS application within an Astro shell.
-- **Three.js**: Particle field (petals, smoke, embers), garland physics (v2),
+- **Three.js**: Particle field (petals, smoke, embers),
   arati flame (v2). Loaded only in the room. Deliberately *not* used for the
   altar furniture: those objects never move, so paying a live 3D budget — env
   maps for the brass, a perspective camera fighting the flat page layout — buys
@@ -198,7 +209,7 @@ Room              — main container, mode state machine
   ParticleField   — Three.js ambient effects, sourced from the altar
   LotusNav        — blooming nav, mode switching
   JapaStream      — mantra data, streaming/manual display
-  GarlandOverlay  — SVG/image composite (v1), physics (v2)
+  GarlandOverlay  — rendered flower sprites on a Verlet rope
   TeachingsOverlay — quote display
   SoundController — audio scaffolding, mute/unmute, track selection
   AtmosphereEngine — time-of-day CSS updates, ambient color
@@ -216,7 +227,7 @@ Domain: `ജയ്മാ.com` / `xn--iwc0bc5dwd.com`.
 - Devi bhava base state with particle atmosphere
 - Lotus nav (bloom/close interaction)
 - Photo mode (cycle through available photos)
-- Garland v1 (simple SVG/image overlay with animation)
+- Garland (rendered flowers on a simulated rope, carried and hung)
 - Japa mode (streaming + manual, script toggle)
 - Teachings mode (scaffolded, needs quote data)
 - Sound mode (scaffolded, no audio assets yet)
@@ -225,7 +236,6 @@ Domain: `ജയ്മാ.com` / `xn--iwc0bc5dwd.com`.
 - Time-of-day atmosphere
 
 **v2** (future):
-- Garland physics simulation
 - Arati flame + audio
 - Lalita Sahasranama (1000 names)
 - Sound assets (bhajans, recordings)

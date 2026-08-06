@@ -23,11 +23,15 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `lotus-nav.ts` — SVG bloom nav, mode state machine; exports `Mode` type
   - `photo-mode.ts` — photo cycling with crossfade
   - `japa-mode.ts` — five namavalis; mantra picker, two views, script toggle
-  - `garland-mode.ts` — SVG garland overlay (v1)
+  - `garland-mode.ts` — garlands you carry and hang; rendered flowers on a rope
+  - `garland-rope.ts` — the Verlet strand a garland hangs on
   - `teachings-mode.ts` — Amma quotes
   - `sound-mode.ts` — ambient beds (tanpura, ocean); Web Audio, mixable
   - `tab-mantra.ts` — random Lalita name in browser tab title on blur
 - `tools/altar-assets.py` — Blender script generating the brass altar furniture
+- `tools/garland-flowers.py` — Blender script rendering the garland flowers
+- `tools/blender_common.py` — camera, world and output shared by both (imported,
+  hence the underscore)
 - `tools/lotus-knob.py` — cuts the nav's centre flower out of `docs/lotus.jpg`
 - `tools/audio_loop.py` — shared seamless-loop + web-encode helper (imported,
   hence the underscore)
@@ -190,6 +194,59 @@ in brackets, a count marker every tenth line, per-script disagreement about
 which om to use. The tool normalises all of it and then **asserts each name
 count**. That assert is the safety net: an edit that merges or drops a line
 fails the build instead of quietly shortening the japa.
+
+## Garlands
+
+You take a garland from the panel, carry it across the altar and hang it on
+her frame. Spawn as many as you like; **Clear is the only thing that takes
+them down** — leaving the mode does not, exactly like the sound panel.
+
+Hanging it on the frame rather than round her neck is not a workaround for a
+flat photo. It is what is actually done with a framed photo at a shrine, so
+the one thing a 2D image cannot support was never needed.
+
+### Why the flowers are rendered one at a time
+
+`tools/garland-flowers.py` renders thirteen single flowers, not three garland
+images, because a garland's whole character is that its shape depends on how
+many points you hold it by: one hand and it hangs in a long narrow U, two
+frame corners and it spreads into a wide drape. `garland-rope.ts` is a Verlet
+strand whose two ends are the pins, so that transition costs nothing — the
+strand's rest length does not change when the pins move apart. It also ships
+fewer bytes, since forty flowers on a strand are a dozen images reused.
+
+    blender -b -P tools/garland-flowers.py
+    blender -b -P tools/garland-flowers.py -- --only marigold-a
+
+**Three invariants let the web side hardcode nothing**, unlike the brass: one
+resolution for every sprite, one shared world-space window (so relative flower
+sizes are already right in pixels — no scale table), and every flower centred
+on the origin (so threading one on is drawing it centred on a rope node).
+Break one and the garlands come apart with no error. The flower recipes —
+which sprites, how often, how densely strung — live in `KINDS` in
+`garland-mode.ts`, because they are art direction, not geometry.
+
+Two things drove the modelling and will bite anyone retuning it. Petals must
+stay narrow and deeply troughed or they tile smoothly and a marigold comes out
+a dahlia. And the variant tilts are large because a flower threaded on a
+garland shows its side far more than its front — which also disposes of the
+artefact where petals near the pole, being surfaces seen edge-on, draw as
+spokes across the flower's middle.
+
+### Tuning the drape
+
+`length` in `KINDS` is the number to be careful with: it is the strand length
+as a multiple of the frame's width, and a strand L across a span W drapes to
+about `sqrt((L/2)² - (W/2)²)` below the pins. At 1.95 the loop crosses her
+face; the shipped values put it near mid-frame, around the neck, clear of the
+face the whole room is built to lead the eye to. `BOX` sets flower size,
+`spacing` how densely the strand is strung.
+
+The animation loop stops once every garland has settled and restarts on the
+next touch, so a still altar costs nothing. `Rope.step()` measures motion
+*after* its constraint passes, not from `(x - px)` at the top: the latter
+reads the previous frame's displacement, so a strand starting from rest
+reports itself settled on its first call and freezes in its spawn pose.
 
 ## Sound
 

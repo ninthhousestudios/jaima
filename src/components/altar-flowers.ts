@@ -11,7 +11,7 @@
  */
 
 /** mulberry32 — small, fast, good enough for scattering petals. */
-function seeded(seed: number): () => number {
+export function seeded(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;

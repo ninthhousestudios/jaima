@@ -28,7 +28,7 @@ import Base from '../layouts/Base.astro';
   import { initTabMantra } from '../components/tab-mantra';
   import { initPhotoMode } from '../components/photo-mode';
   import { initJapaMode, activateJapa, destroyJapa } from '../components/japa-mode';
-  import { initGarlandMode } from '../components/garland-mode';
+  import { initGarlandMode, setGarlandActive } from '../components/garland-mode';
   import { initTeachingsMode } from '../components/teachings-mode';
   import { initSoundMode } from '../components/sound-mode';
   import type { Mode } from '../components/lotus-nav';
@@ -42,7 +42,9 @@ import Base from '../layouts/Base.astro';
     const darshan = document.getElementById('darshan')!;
     initPhotoMode(darshan, room);
     initJapaMode(room);
-    initGarlandMode(room);
+    // The garlands live in the altar, not in their overlay: they stay hung
+    // after you leave the mode, and they belong under the altar's light passes.
+    initGarlandMode(document.getElementById('altar')!, room);
     initTeachingsMode(room);
     initSoundMode(room);
   }
@@ -58,6 +60,9 @@ import Base from '../layouts/Base.astro';
     // After .active, never before: the japa crawl measures its own line
     // height, and everything in a display:none overlay measures 0.
     if (mode === 'japa') activateJapa();
+    // The garland canvas only takes the pointer inside its own mode; the
+    // garlands themselves stay on the altar either way.
+    setGarlandActive(mode === 'garland');
   }
 
   function initAtmosphere() {
@@ -1237,32 +1242,43 @@ import Base from '../layouts/Base.astro';
     accent-color: #d4a574;
   }
 
-  /* Garland mode */
+  /* Garland mode
+
+     The canvas is a child of #altar, below .altar-light and .altar-shade at
+     8, so a hung garland is crushed into the room's value range like every
+     other decoration rather than sitting on top of it as a sticker. It is
+     deliberately outside the mode overlay: garlands stay hung after you leave
+     the mode, and only Clear takes them down.
+
+     z-index 7 ties with .altar-offerings, so paint order decides, and the
+     canvas wins because initAltar runs at the module's top level while
+     initGarlandMode waits for the threshold to clear. That is the order we
+     want — a garland laid on the ledge covers the flowers there — but it
+     rests on the init order, not on the number. */
+
+  .garland-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    /* Scenery by default. Only inside garland mode does it take the pointer,
+       or it would swallow every click meant for the lotus. */
+    pointer-events: none;
+  }
+
+  .garland-canvas.grabbing {
+    pointer-events: auto;
+    cursor: grab;
+  }
+
+  .garland-canvas.grabbing:active {
+    cursor: grabbing;
+  }
+
   .garland-overlay {
     position: absolute;
     inset: 0;
     z-index: 15;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     pointer-events: none;
-  }
-
-  .garland-display {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
-
-  .garland-svg {
-    animation: garland-drape 2s ease-out forwards;
-  }
-
-  @keyframes garland-drape {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
   }
 
   .garland-controls {
@@ -1275,7 +1291,8 @@ import Base from '../layouts/Base.astro';
     z-index: 20;
   }
 
-  .garland-pick {
+  .garland-pick,
+  .garland-clear {
     background: hsla(30, 20%, 30%, 0.6);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #d4b89a;
@@ -1289,9 +1306,20 @@ import Base from '../layouts/Base.astro';
     transition: background 0.3s ease;
   }
 
-  .garland-pick.active {
+  .garland-pick:hover,
+  .garland-clear:hover {
     background: hsla(30, 40%, 40%, 0.7);
     border-color: hsla(30, 50%, 60%, 0.5);
+  }
+
+  .garland-clear {
+    margin-left: 0.5rem;
+    color: hsla(30, 30%, 70%, 0.8);
+  }
+
+  .garland-overlay.loading .garland-controls {
+    opacity: 0.5;
+    pointer-events: none;
   }
 
   .garland-swatch {
