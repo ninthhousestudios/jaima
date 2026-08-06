@@ -18,6 +18,8 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   - `altar.ts` — the shrine the photo sits in: frame, mat, ledge, lamps, shelves, offerings
   - `arati-lamp.ts` — the pancharati hand lamp; built to be picked up and waved
   - `arati-mode.ts` — the arati recording, and the hand that waves either lamp
+  - `puja-bell.ts` — the Nandi bell on the ledge; swing it, or leave it ringing
+  - `audio.ts` — the one AudioContext, codec choice and buffer cache
   - `dom.ts` — `el()` and `flame()`, shared by anything that builds brass
   - `altar-flowers.ts` — seeded procedural SVG (marigold, rose, jasmine, thoranam)
   - `particles.ts` — Three.js canvas overlay (petals, incense smoke, embers)
@@ -50,8 +52,9 @@ otherwise sit as stubs on the flower and eat clicks meant for the toggle.
 
 The room's base state. The photo hangs matted inside a gilt frame on the wall,
 flanked by two nilavilakku with live flames, under a mango-leaf thoranam, above
-a low ledge carrying kalasha, diyas, three incense sticks and flower offerings.
-Two bracket shelves between the lamps and the frame carry the arati lamps.
+a low ledge carrying kalasha, diyas, three incense sticks, the puja bell and
+flower offerings. Two bracket shelves between the lamps and the frame carry the
+arati lamps.
 
 The photo does not rest on the ledge and is not positioned from it — the ledge
 is a platform for offerings, the frame is hung. `--ledge-y` and `--frame-y` are
@@ -90,13 +93,15 @@ the stick count to keep the columns even.
 
 ### Regenerating the brass — read this before touching a lamp
 
-    blender -b -P tools/altar-assets.py            # all five objects
+    blender -b -P tools/altar-assets.py            # all six objects
     blender -b -P tools/altar-assets.py -- --only nilavilakku
 
 Most objects are a surface of revolution built from a profile curve, which is
 how the real pieces are lathe-turned. The arati lamp is the exception: a turned
 body with five arms brazed on, so it also uses `sweep()` (a flattened tube
-along a planar path — bent sheet, not pipe) and `join_all()`. Everything is
+along a planar path — bent sheet, not pipe) and `join_all()`. The bell is the
+other: a turned bell and handle, with a cast Nandi on top built from a dozen
+placed ellipsoids (`blob()`, `spike()`), joined the same way. Everything is
 rendered under one shared light rig so the objects composite as a single altar;
 the convention (each piece lit as if the altar's centre is to its right, hence
 the left lamp is CSS-mirrored for the right) is in the script's module
@@ -109,9 +114,14 @@ render now *prints* the correct values, so read the log instead of re-deriving:
 | Printed as | Goes to |
 | --- | --- |
 | `wick0..4` | `WICKS` in `altar.ts`, `WICKS` in `arati-lamp.ts` |
-| `grip` | `transform-origin` on `.arati-lamp`, `GRIP` in `arati-lamp.ts` |
-| `content box` | `bottom` on `.arati-lamp` — the clear margin it must sink by |
-| the `WxH` line | `aspect-ratio` on `.altar-lamp` and `.arati-lamp` |
+| `grip` | `transform-origin` + `GRIP`, on `.arati-lamp` and on `.puja-bell` |
+| `content box` | `bottom` on `.arati-lamp` / `.puja-bell` — the clear margin it must sink by |
+| the `WxH` line | `aspect-ratio` on `.altar-lamp`, `.arati-lamp` and `.puja-bell` |
+
+A builder returns `(object, flames, landmarks)`, and the landmarks are how a
+piece asks for a number the web side cannot compute. Only the two things that
+get picked up report a `grip`, and each says where its own is — the lamp is
+held under its dish, at the origin; the bell most of the way up its handle.
 
 Also derived, and not printed: `.altar-diya .altar-flame { left: 89.3%; top:
 43.7% }`. The reporter was checked against the nilavilakku's existing hand-
@@ -395,15 +405,74 @@ nothing, exactly like the garlands.
 
 Two things are load-bearing and invisible:
 
-- The lamps take the pointer **only** in arati mode (`setAratiActive`, the same
-  arrangement as `setGarlandActive`). They sit over the frame's flanks, where a
-  stray grab would eat a click meant for a garland.
+- The lamps are **live in every mode**, like the bell — `setAratiActive` only
+  mounts and pauses the recording. A stray grab cannot eat a click meant for a
+  garland because the garland canvas (z 7) sits above the shelves (z 5) and
+  takes the pointer inside its own mode; that z-order is what makes the
+  ungated lamps safe, so don't reorder it.
 - `.altar-shelf:has(.arati-lamp.lifted)` raises the *shelf*, not the lamp. The
   shelf is a positioned element with a `z-index`, hence a stacking context, so
   raising the lamp inside it does nothing at all. `8` ties with `.altar-light`
   and `.altar-shade`, and a tie breaks on document order — the stage comes
   first, so a carried lamp clears the offerings and still passes under the two
   light passes, where everything on this altar belongs.
+
+## The bell
+
+A brass puja bell with Nandi couchant on the handle stands on the ledge, off to
+the left of centre. **Drag it and it rings; click it without dragging and it
+keeps ringing on its own until you click it again.** The second gesture is the
+whole reason it exists: one pointer cannot hold the bell and a lamp at once, so
+without it the bell and the arati could never happen together, which is the one
+way a bell is actually used.
+
+It is **live in every mode**, like the arati lamps, and it keeps ringing and
+keeps its place across a mode change, like the sound beds. Only the line
+explaining it belongs to arati — the hint is in that overlay, so it is not on
+screen anywhere else. Where a mode legitimately owns that patch of screen the
+bell is simply behind it: reachable from the bare altar and from photo, sound
+and arati; covered by the garland canvas (which is the whole altar, by design)
+and by the japa and teachings control bars. That is also why the bell steals no
+clicks — everything that wants the altar's pointer sits above the offerings.
+
+The bell does not go home by itself. Drop it back near its place and it settles
+into it exactly (`HOME_SNAP`); that is the only way home, and it is why there is
+no Clear button of the kind the garlands have.
+
+### The swing
+
+One damped pendulum, integrated in `puja-bell.ts`, driven by the **acceleration**
+of the carried position and not its speed — the hand pulls the pivot out from
+under the body and the body is left behind, so walking the bell steadily across
+the altar does not ring it and shaking it does. The clapper lands at each turn
+of the swing, which is why a small shake gives a small ring for free.
+
+`AUTO_PUSH` is an escapement: a nudge, in whichever direction it is already
+going, on every step inside `AUTO_AMP`. So it is the same integrator either way
+and clicking a swinging bell keeps the swing it had. `STOP_D` is the opposite —
+the free damping is right for a bell let go of and far too slow for one told to
+stop, which would go on striking for four seconds after the click.
+
+**The integrator runs on a fixed `STEP_MS`, not on the frame**, and must keep
+doing so. Every constant is per step, so on a frame-driven loop the bell would
+ring at twice the rate on a 120 Hz display. The arati wave gets away with
+reading the frame directly because a lamp that follows a little more tightly is
+not noticeable; a bell's *rate* is the first thing an ear hears.
+
+### The sound
+
+`static/audio/bell.opus` and `bell.m4a` — a single strike, not a loop. Drop the
+recording in at those two names and it plays; **the file is not in the repo
+yet**, and until it is the bell swings silently, which is deliberate. Encode
+whatever you find with the `encode()` in `tools/audio_loop.py`, the same helper
+the beds use.
+
+Playback shares `audio.ts` with the beds: one AudioContext, one codec choice,
+one fetch-decode cache. A strike is a fresh `AudioBufferSourceNode` each time,
+gained by the speed at the turn and detuned a few percent, because an
+`<audio>` element cannot overlap a sound with itself and a bell rung fast is one
+strike ringing on into the next. Fetched on the first touch of the bell, never
+at init — a pointerdown is a user gesture, so the context is created inside one.
 
 ## Fonts
 

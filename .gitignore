@@ -10,3 +10,5 @@ docs/*.wav
 docs/*.flac
 .ruff_cache/
 __pycache__/
+docs/*.mp3
+src-tauri/

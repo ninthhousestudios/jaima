@@ -222,6 +222,39 @@ def collar(points, r_in, r_out, z0, height):
     points.append((r_in, z0 + height))
 
 
+def blob(name, scale, location, rotation=(0.0, 0.0, 0.0), segments=24, rings=14):
+    """A sphere, scaled and placed.
+
+    The Nandi on the bell's handle is the one thing in this file that was never
+    turned on a lathe — it is cast, so it is modelled the way a figure is
+    roughed out, from a handful of ellipsoids. Object transforms are enough
+    because join_all bakes them in, the same thing the arati lamp's cups rely
+    on.
+    """
+    p = []
+    for i in range(rings + 1):
+        a = math.pi * i / rings
+        p.append((math.sin(a), -math.cos(a)))
+    obj = revolve(name, p, segments=segments)
+    obj.scale = scale
+    obj.rotation_euler = rotation
+    obj.location = location
+    return obj
+
+
+def spike(name, r0, height, location, rotation=(0.0, 0.0, 0.0), segments=12, steps=8):
+    """A tapering horn, standing on +z before it is rotated into place."""
+    p = [(0.0, 0.0), (r0, 0.0)]
+    for i in range(1, steps):
+        t = i / steps
+        p.append((r0 * (1.0 - t) ** 0.85, height * t))
+    p.append((0.0, height))
+    obj = revolve(name, p, segments=segments)
+    obj.rotation_euler = rotation
+    obj.location = location
+    return obj
+
+
 # ---------------------------------------------------------------------------
 # Objects
 # ---------------------------------------------------------------------------
@@ -312,7 +345,7 @@ def build_nilavilakku():
     for k in range(5):
         theta = math.radians(ARM_PHASE + 72.0 * k)
         flames.append((1.14 * math.cos(theta), 1.14 * math.sin(theta), dish_z + 0.72))
-    return obj, flames
+    return obj, flames, []
 
 
 def build_incense():
@@ -341,7 +374,7 @@ def build_incense():
     p.append((0.00, z + 0.09))
 
     obj = revolve("incense-holder", p, segments=128)
-    return obj, []
+    return obj, [], []
 
 
 def build_diya():
@@ -362,7 +395,7 @@ def build_diya():
 
     # A single lobe pulls one side of the rim out into the wick spout.
     obj = revolve("diya", p, segments=128, lobes=(1, 0.30, 0.26, 0.48, 0.0))
-    return obj, [(0.0, 0.0, 0.30)]
+    return obj, [(0.0, 0.0, 0.30)], []
 
 
 def build_kalasha():
@@ -388,7 +421,7 @@ def build_kalasha():
         p.append((0.58 * (1 - t), z + 0.28 - 0.10 * t))
 
     obj = revolve("kalasha", p, segments=128)
-    return obj, []
+    return obj, [], []
 
 
 # The arati lamp's five arms stand at the same angles as the nilavilakku's five
@@ -520,7 +553,153 @@ def build_arati():
         # The wick burns in the cup, just above its rim.
         flames.append((x, y, ARATI_CUP_Z + 0.22))
 
-    return join_all("arati", parts), flames
+    return join_all("arati", parts), flames, [("grip", (0.0, 0.0, 0.0))]
+
+
+# The puja bell, modelled from docs/puja-bell.jpg. Everything is in units of
+# the mouth's radius, which is what makes the proportions readable. Measured
+# off the reference in those units the four sections come out as skirt 1.20,
+# shoulder 0.66, handle 2.07, Nandi 0.95 — so the brass is 3.9 radii tall and
+# the whole bell about 4.8, i.e. two and a half times as tall as it is wide.
+# Getting the SKIRT height right is what stops it reading as a toadstool: it is
+# the section that carries the bell's mass, and a short one puts all the visual
+# weight in the handle.
+#
+# Where a hand closes round the handle, and therefore what the ring rotates
+# about: the middle of the shaft. This is the one number the web side needs and
+# it is printed as `grip` by every render.
+BELL_GRIP_Z = 2.85
+
+
+def build_bell():
+    """The puja bell — turned brass with a Nandi couchant on the handle.
+
+    Rung during arati, so like the arati lamp it is modelled to be picked up:
+    no base, no side that is the front. Two constructions, joined — the bell
+    and its handle are one lathe-turned profile, and the bull on top is a
+    dozen ellipsoids. Nandi is Shiva's mount and faces the deity, which is why
+    the bull is broadside to the camera: it is looking at her, not at us.
+    """
+    # --- mouth, skirt, shoulder ---
+    # The mouth is closed with a flat disc. A real bell is open and carries a
+    # clapper, but the camera looks 9 degrees DOWN (TILT_DEG) and the mouth
+    # faces the floor, so no part of the inside is ever in frame — and when the
+    # bell is swung on the page it is a sprite rotating, which cannot open the
+    # mouth either.
+    p = [
+        (0.00, 0.00),
+        (0.94, 0.00),
+        (1.00, 0.02),  # the lip flares out and slightly over
+        (1.00, 0.06),
+        (0.96, 0.10),
+    ]
+    collar(p, 0.95, 0.99, 0.10, 0.055)  # turned band just above the lip
+    z = 0.155
+    for i in range(1, 15):  # the skirt, drawing in as it rises
+        t = i / 14
+        p.append((0.95 - 0.23 * t**1.6, z + 1.05 * t))
+    z += 1.05
+
+    # The stepped waist. Two rings that stand PROUD of the skirt below them —
+    # the reference's most particular feature, and what stops the bell reading
+    # as a plain cone with a stick in it.
+    collar(p, 0.72, 0.81, z, 0.09)
+    z += 0.09
+    collar(p, 0.70, 0.77, z, 0.07)
+    z += 0.07
+
+    for i in range(1, 15):  # the shoulder, rounding over to the handle
+        t = i / 14
+        p.append((0.22 + 0.46 * math.cos(t * math.pi * 0.5) ** 0.85, z + 0.49 * t))
+    z += 0.49
+
+    # --- handle: three turned sections, each slimmer than the one below ---
+    collar(p, 0.20, 0.28, z, 0.07)
+    z += 0.07
+    bulb(p, 0.145, 0.20, z, 0.28)
+    z += 0.28
+    for neck, belly, h in (
+        (0.125, 0.155, 0.50),
+        (0.118, 0.148, 0.50),
+        (0.110, 0.140, 0.50),
+    ):
+        collar(p, neck + 0.01, neck + 0.06, z, 0.055)
+        z += 0.055
+        bulb(p, neck, belly, z, h)
+        z += h
+
+    # The plinth the bull is cast onto.
+    collar(p, 0.13, 0.185, z, 0.06)
+    z += 0.06
+    p.append((0.17, z + 0.03))
+    p.append((0.00, z + 0.05))
+    base = z  # the Nandi's feet
+
+    parts = [revolve("bell", p, segments=128)]
+
+    # --- Nandi, couchant, in profile ---
+    # Broadside to the camera and facing -x, so the silhouette carries it: at
+    # the size this renders on the page the bull is about fifteen pixels tall,
+    # and a three-quarter view of fifteen pixels is a lump.
+    def at(name, scale, loc, rot=(0.0, 0.0, 0.0)):
+        parts.append(blob(f"bell-{name}", scale, (loc[0], loc[1], base + loc[2]), rot))
+
+    # Long and low, with one thing standing up out of it. Spheres of similar
+    # size clustered together read as a bunch of grapes, so the barrel is
+    # stretched well past round, the legs are folded flat under it, and the
+    # head is the only mass above the line of the back.
+    at("barrel", (0.32, 0.150, 0.135), (0.08, 0.0, 0.165))
+    at("rump", (0.19, 0.145, 0.145), (0.31, 0.0, 0.185))
+    at("chest", (0.185, 0.150, 0.145), (-0.15, 0.0, 0.200))
+    at("hump", (0.150, 0.115, 0.115), (-0.06, 0.0, 0.325))
+    # The neck is short and thick and leaves the chest at a steep angle. A
+    # long one turns the bull into a camel, which is what the first pass was.
+    at(
+        "neck",
+        (0.115, 0.100, 0.115),
+        (-0.30, 0.0, 0.320),
+        (0.0, math.radians(-45), 0.0),
+    )
+    at("head", (0.145, 0.100, 0.115), (-0.44, 0.0, 0.480))
+    at("muzzle", (0.095, 0.072, 0.065), (-0.57, 0.0, 0.420))
+
+    for sign in (1, -1):
+        y = 0.150 * sign
+        at("foreleg", (0.24, 0.050, 0.055), (-0.10, y, 0.045))
+        at("knee", (0.075, 0.055, 0.070), (-0.30, y, 0.070))
+        at("hindleg", (0.16, 0.065, 0.075), (0.26, y * 0.97, 0.075))
+        at(
+            "ear",
+            (0.045, 0.090, 0.022),
+            (-0.40, 0.100 * sign, 0.540),
+            (math.radians(-25 * sign), 0.0, 0.0),
+        )
+        # Up and forward in the xz plane, barely splayed. The camera looks
+        # along +y, so a horn splayed sideways is splayed in DEPTH and does not
+        # read at all — the pair has to work as one shape seen from the side.
+        parts.append(
+            spike(
+                f"bell-horn{sign}",
+                0.042,
+                0.15,
+                (-0.45, 0.085 * sign, base + 0.535),
+                (math.radians(-18 * sign), math.radians(-22), 0.0),
+            )
+        )
+
+    # The tail, laid down the flank. A free-standing tail is the thinnest thing
+    # on the model and would render as a stray whisker.
+    parts.append(
+        spike(
+            "bell-tail",
+            0.026,
+            0.26,
+            (0.40, 0.085, base + 0.22),
+            (0.0, math.radians(158), 0.0),
+        )
+    )
+
+    return join_all("bell", parts), [], [("grip", (0.0, 0.0, BELL_GRIP_Z))]
 
 
 OBJECTS = {
@@ -529,6 +708,7 @@ OBJECTS = {
     "diya": build_diya,
     "kalasha": build_kalasha,
     "arati": build_arati,
+    "bell": build_bell,
 }
 
 
@@ -618,7 +798,7 @@ def build_light_rig(height, flames):
 
 def render_object(name, builder, out_dir):
     clear_scene()
-    obj, flames = builder()
+    obj, flames, extra = builder()
 
     bounds = [obj.matrix_world @ v.co for v in obj.data.vertices]
     z_max = max(v.z for v in bounds)
@@ -649,10 +829,11 @@ def render_object(name, builder, out_dir):
         width = max(64, round(RENDER_LONG_EDGE_3X * proj_w / proj_h))
         cam.data.ortho_scale = proj_h * ORTHO_MARGIN
 
-    # The grip: the centre of the dish's underside, which is where a hand
-    # holds a lamp and therefore what the arati wave has to rotate about.
-    landmarks = [(f"wick{i}", pt) for i, pt in enumerate(flames)]
-    landmarks.append(("grip", (0.0, 0.0, 0.0)))
+    # Wicks, plus whatever else the object says the web side needs — the grip
+    # a hand takes it by, for the two pieces that get picked up. Where that is
+    # is the object's business: the arati lamp is held under its dish, at the
+    # origin, and the bell most of the way up its handle.
+    landmarks = [(f"wick{i}", pt) for i, pt in enumerate(flames)] + extra
     report_projection(
         TAG, name, landmarks, height, width, render_h, cam.data.ortho_scale
     )

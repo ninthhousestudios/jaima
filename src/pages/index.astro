@@ -53,7 +53,9 @@ import Base from '../layouts/Base.astro';
     initTeachingsMode(room);
     initSoundMode(room);
     // Arati waves the two lamps already standing on the altar's shelves, so it
-    // is handed their setters rather than building a lamp of its own.
+    // is handed their setters rather than building a lamp of its own. The bell
+    // is not passed: it is live in every mode and runs itself, and all arati
+    // contributes is the line explaining how to ring it.
     initAratiMode(room, document.getElementById('altar')!, altar.aratiLamps);
   }
 
@@ -63,6 +65,18 @@ import Base from '../layouts/Base.astro';
     });
     if (mode !== 'japa') destroyJapa();
     if (mode !== 'teachings') destroyTeachings();
+    // BEFORE the early return, both of them. Clicking a lit petal closes the
+    // modes altogether and arrives here with mode === null, and returning
+    // first would leave the arati playing on behind an overlay that is no
+    // longer on screen.
+    //
+    // The garland canvas only takes the pointer inside its own mode; the
+    // garlands themselves stay on the altar either way.
+    setGarlandActive(mode === 'garland');
+    // For arati this governs only the recording — leaving pauses it, which a
+    // hidden iframe would not do. The lamps and the bell are not gated: both
+    // are live in every mode and run themselves.
+    setAratiActive(mode === 'arati');
     if (!mode) return;
     const overlay = document.getElementById(`mode-${mode}`);
     if (overlay) overlay.classList.add('active');
@@ -70,12 +84,6 @@ import Base from '../layouts/Base.astro';
     // and everything in a display:none overlay measures 0.
     if (mode === 'japa') activateJapa();
     if (mode === 'teachings') activateTeachings();
-    // The garland canvas only takes the pointer inside its own mode; the
-    // garlands themselves stay on the altar either way.
-    setGarlandActive(mode === 'garland');
-    // Same shape for the arati lamps — in reach only inside arati, and leaving
-    // the mode pauses the recording, which a hidden iframe would not do.
-    setAratiActive(mode === 'arati');
   }
 
   function initAtmosphere() {
@@ -283,6 +291,20 @@ import Base from '../layouts/Base.astro';
     --shelf-x: 23.5%;
     --shelf-y: 44vh;
     --arati-h: 8vh;
+
+    /* The bell on the ledge. --bell-x is a fraction of the LEDGE, like every
+       other offering. It is the tallest thing standing there on purpose: it is
+       the one offering meant to be picked up, so it has to be big enough to
+       take hold of.
+
+       THIS SLOT IS FULL. The bell is centred in the gap between the marigold
+       at 33% and the left diya at 41%, and at this height it very nearly fills
+       it — about a pixel of air either side on a 16:9 window, and none at all
+       at 4:3, where the mouth clips the diya. Raising --bell-h or nudging
+       --bell-x runs it into one or the other; the room is made by moving the
+       diyas (41%/59%, symmetric) inward, not by squeezing the bell. */
+    --bell-x: 36.2%;
+    --bell-h: 10.8vh;
 
     --lamp-h: 62vh;
     /* Distance of each lamp's centre line from its side of the viewport. */
@@ -740,20 +762,17 @@ import Base from '../layouts/Base.astro';
     transform: translate(var(--lift-x, 0px), var(--lift-y, 0px)) translateX(-50%)
       rotate(var(--wave-tilt, 0deg));
     --flame-plumb: calc(-1 * var(--wave-tilt, 0deg));
-    /* Scenery unless arati mode says otherwise: these sit over the frame's
-       flanks, where a stray grab would eat a click meant for a garland. */
-    pointer-events: none;
-  }
-
-  .arati-lamp.grabbable {
-    pointer-events: auto;
+    /* Live in every mode, like the bell. A stray grab cannot eat a click
+       meant for a garland: the garland canvas (7) sits above the shelves (5)
+       and takes the pointer inside its own mode, exactly as it covers the
+       bell. */
     cursor: grab;
     /* Waving is the one thing in the room done by dragging something that is
        not obviously draggable, so say so on hover. */
     transition: filter 0.4s ease;
   }
 
-  .arati-lamp.grabbable:hover .arati-lamp-img,
+  .arati-lamp:hover .arati-lamp-img,
   .arati-lamp.lifted .arati-lamp-img {
     filter: drop-shadow(0 0.6vh 0.9vh hsla(0, 0%, 0%, 0.6))
       drop-shadow(0 0 1.4vh hsla(36, 90%, 60%, 0.55));
@@ -1001,6 +1020,65 @@ import Base from '../layouts/Base.astro';
     box-shadow: 0 0 0.6vh 0.16vh hsla(18, 100%, 55%, 0.45);
   }
 
+  /* --- the puja bell ---
+
+     Inside .altar-offerings, which is a stacking context of its own
+     (z-index: 7), so raising the bell here lifts it clear of the pots and the
+     incense without letting it out from under .altar-light and .altar-shade.
+     No `:has()` on an ancestor needed, unlike the arati lamp on its shelf —
+     the offerings are all siblings. */
+  .puja-bell {
+    position: absolute;
+    left: var(--bell-x);
+    /* Stands ON the ledge. The render carries 4.62% of clear margin below the
+       mouth (ORTHO_MARGIN), so the box has to sink by that much or the bell
+       floats. altar-assets.py prints this as the content box on every render. */
+    bottom: calc(var(--bell-h) * -0.0462);
+    height: var(--bell-h);
+    /* The render is 732x1536; GRIP in puja-bell.ts and the transform-origin
+       below only land on the handle at that ratio. */
+    aspect-ratio: 732 / 1536;
+    /* Turns about the grip — the middle of the handle, where a hand closes
+       round it. GRIP in puja-bell.ts is the same number. */
+    transform-origin: 50% 39.8%;
+    /* The lift comes first so the swing still pivots about the grip wherever
+       the bell has been carried to: each function in the list is applied about
+       transform-origin, so translating does not move the pivot off the hand.
+       Both are set by puja-bell.ts, --lift-x/y in px. */
+    transform: translate(var(--lift-x, 0px), var(--lift-y, 0px)) translateX(-50%)
+      rotate(var(--swing, 0deg));
+    /* Live in every mode, unlike the arati lamps: a bell is rung when you want
+       to ring it. .altar-offerings takes no pointer at all, so the bell has to
+       ask for one back. Nothing above it on the altar loses a click to this —
+       every mode that wants the altar's pointer (the garland canvas, the
+       overlays) sits above the offerings and gets it first. */
+    pointer-events: auto;
+    cursor: grab;
+  }
+
+  .puja-bell.lifted {
+    cursor: grabbing;
+    z-index: 2;
+  }
+
+  .puja-bell-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 0.5vh 0.7vh hsla(0, 0%, 0%, 0.6));
+  }
+
+  /* Warm on hover and while in hand, exactly as the arati lamp does — the
+     things you can pick up should say so the same way. `.ringing` gets it too:
+     a bell going by itself is lit, and that is the only difference between one
+     that will keep ringing and one that has stopped. */
+  .puja-bell:hover .puja-bell-img,
+  .puja-bell.lifted .puja-bell-img,
+  .puja-bell.ringing .puja-bell-img {
+    filter: drop-shadow(0 0.5vh 0.7vh hsla(0, 0%, 0%, 0.6))
+      drop-shadow(0 0 1.2vh hsla(36, 90%, 60%, 0.5));
+  }
+
   .altar-bloom {
     position: absolute;
     bottom: 0.2vh;
@@ -1229,19 +1307,27 @@ import Base from '../layouts/Base.astro';
      script buttons that decide how it is written. */
   .japa-mantra {
     max-width: 22rem;
-    background: hsla(30, 20%, 30%, 0.5);
+    /* appearance: none, or WebKit paints the closed box with the OS theme —
+       white, with our pale text unreadable on it. Chromium happens to honour
+       the background without it; WebKitGTK (the Tauri shell) does not. The
+       arrow goes with the theme, so draw our own. */
+    appearance: none;
+    background-color: hsla(30, 20%, 30%, 0.5);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23f0d8b8' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #f0d8b8;
-    padding: 0.4rem 0.6rem;
+    padding: 0.4rem 1.6rem 0.4rem 0.6rem;
     cursor: pointer;
     border-radius: 4px;
     font-size: 0.9rem;
     font-family: inherit;
-    transition: background 0.3s ease;
+    transition: background-color 0.3s ease;
   }
 
   .japa-mantra:hover {
-    background: hsla(30, 30%, 38%, 0.6);
+    background-color: hsla(30, 30%, 38%, 0.6);
   }
 
   /* The list itself is drawn by the OS, which will not honour the panel's

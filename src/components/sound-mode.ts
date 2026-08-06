@@ -11,6 +11,11 @@
 // loop = true rejoins the buffer sample-accurately. The 100 s tanpura is cut
 // to a whole number of pluck cycles to match (see tools/render-tanpura.py) —
 // both halves of that have to hold or the seam becomes audible.
+//
+// The context, the codec choice and the fetch-decode-cache live in audio.ts,
+// because the bell needs all three and none of the rest of this.
+
+import { audio, load } from './audio';
 
 type TrackId = 'tanpura' | 'ocean';
 
@@ -36,29 +41,9 @@ const FADE_S = 3.0; // a drone should arrive and leave, not switch
 interface Bed {
   gain: GainNode;
   source: AudioBufferSourceNode | null;
-  buffer: Promise<AudioBuffer> | null;
 }
 
-let ctx: AudioContext | null = null;
 const beds = new Map<TrackId, Bed>();
-
-function audio(): AudioContext {
-  // Constructed on the first toggle, never at init: an AudioContext created
-  // without a user gesture starts suspended and browsers log about it.
-  if (!ctx) ctx = new AudioContext();
-  return ctx;
-}
-
-function pick(urls: string[]): string {
-  const probe = document.createElement('audio');
-  for (const url of urls) {
-    const type = url.endsWith('.opus')
-      ? 'audio/ogg; codecs=opus'
-      : 'audio/mp4; codecs=mp4a.40.2';
-    if (probe.canPlayType(type)) return url;
-  }
-  return urls[urls.length - 1];
-}
 
 function bedFor(id: TrackId): Bed {
   let bed = beds.get(id);
@@ -66,7 +51,7 @@ function bedFor(id: TrackId): Bed {
     const gain = audio().createGain();
     gain.gain.value = 0;
     gain.connect(audio().destination);
-    bed = { gain, source: null, buffer: null };
+    bed = { gain, source: null };
     beds.set(id, bed);
   }
   return bed;
@@ -85,25 +70,11 @@ async function start(id: TrackId) {
   const bed = bedFor(id);
   // Fetched on first play, not on page load — the tanpura is ~775 KB and most
   // visitors never turn the sound on.
-  if (!bed.buffer) {
-    bed.buffer = fetch(pick(SOURCES[id]))
-      .then(r => {
-        if (!r.ok) throw new Error(`${r.status} fetching ${r.url}`);
-        return r.arrayBuffer();
-      })
-      .then(b => ctx.decodeAudioData(b))
-      .catch(err => {
-        // Leaving a rejected promise cached makes the failure permanent —
-        // every later click would await the same rejection.
-        bed.buffer = null;
-        throw err;
-      });
-  }
-  const buffer = await bed.buffer;
+  const buffer = await load(SOURCES[id]);
 
   if (bed.source) return; // toggled off and on again before the fetch landed
 
-  const source = audio().createBufferSource();
+  const source = ctx.createBufferSource();
   source.buffer = buffer;
   source.loop = true;
   source.connect(bed.gain);

@@ -2,6 +2,7 @@ import { marigold, rose, jasmine, petalScatter, thoranam } from './altar-flowers
 import { buildAratiLamp, type AratiLamp } from './arati-lamp';
 import { el, flame } from './dom';
 import type { ParticleField, Source } from './particles';
+import { buildPujaBell, type PujaBell } from './puja-bell';
 
 /**
  * The shrine the darshan photo sits in: curtain backdrop, framed and matted
@@ -58,6 +59,8 @@ export interface Altar {
    * three setters that move one, and a querySelector would only find the div.
    */
   readonly aratiLamps: readonly AratiLamp[];
+  /** The bell on the ledge, for arati mode to put within reach. */
+  readonly bell: PujaBell;
 }
 
 function svg(
@@ -226,6 +229,12 @@ export function initAltar(host: HTMLElement, darshan: HTMLElement): Altar {
   const aratiLamps = [buildShelf(stage, 'left', 11), buildShelf(stage, 'right', 17)];
   const offerings = buildOfferings(stage);
 
+  // The bell stands among the offerings rather than on a shelf of its own —
+  // that is where a bell lives, within reach of the hand doing the puja. Built
+  // last so it is the topmost of them, and given the host to measure because a
+  // carried bell may go anywhere on the altar.
+  const bell = buildPujaBell(offerings, host);
+
   // Above every decoration, below the nav: the passes that make the layers
   // read as one photograph rather than a stack of cut-outs.
   el('div', 'altar-light', host);
@@ -263,5 +272,6 @@ export function initAltar(host: HTMLElement, darshan: HTMLElement): Altar {
       report();
     },
     aratiLamps,
+    bell,
   };
 }

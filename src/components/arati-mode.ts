@@ -84,11 +84,12 @@ interface AratiMode {
 let mode: AratiMode | null = null;
 
 /**
- * Only in ārati mode are the lamps in reach.
+ * Entering ārati mounts the player; leaving pauses it.
  *
- * Everywhere else they are scenery and must not take the pointer — they sit
- * over the frame's flanks, where a stray grab would eat clicks meant for a
- * garland. Same arrangement as `setGarlandActive`.
+ * The lamps themselves are live in every mode, like the bell — where a mode
+ * owns their patch of screen (the garland canvas, the overlays) it already
+ * sits above the shelves, so nothing needs gating here. Only the recording
+ * belongs to the mode.
  */
 export function setAratiActive(active: boolean) {
   if (!mode) return;
@@ -100,9 +101,15 @@ export function initAratiMode(room: HTMLElement, altar: HTMLElement, lamps: read
   const panel = document.createElement('div');
   panel.className = 'arati-overlay mode-overlay';
   panel.id = 'mode-arati';
+  // Two lines, because neither gesture is one anybody would guess at, and the
+  // bell's second one least of all — nothing about a still bell says that
+  // clicking it leaves it going. The bell itself is live in every mode; only
+  // this explanation of it belongs to arati.
   panel.innerHTML = `
     <div class="arati-player"></div>
     <p class="arati-hint">Take either lamp from its shelf and wave it before her.</p>
+    <p class="arati-hint">Drag the bell to ring it. Click it to leave it ringing
+      while you wave, click again to stop, and set it down wherever you like.</p>
   `;
   room.appendChild(panel);
 
@@ -274,17 +281,9 @@ export function initAratiMode(room: HTMLElement, altar: HTMLElement, lamps: read
   mode = {
     activate() {
       mount();
-      for (const w of waves) w.lamp.root.classList.add('grabbable');
     },
     deactivate() {
       pause();
-      for (const w of waves) w.lamp.root.classList.remove('grabbable');
-      // Let go of one still in hand: the mode is gone and there is nothing
-      // left to release it. It settles back onto its shelf by itself.
-      if (carried) {
-        carried = null;
-        run();
-      }
     },
   };
 }
