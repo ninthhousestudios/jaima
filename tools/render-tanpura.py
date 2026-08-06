@@ -35,6 +35,9 @@ import wave
 
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from audio_loop import crossfade_loop, encode  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 JUSTIFIER = os.path.join(os.path.dirname(ROOT), "justifier")
@@ -128,44 +131,9 @@ def main():
     seg = mix[lead_in : lead_in + loop_n + fade_n]
     assert len(seg) == loop_n + fade_n, "render too short for the requested loop"
 
-    loop = seg[:loop_n].copy()
-    x = np.linspace(0.0, 1.0, fade_n, endpoint=False)[:, None]
-    # Equal power, so the overlap doesn't dip in the middle of the seam.
-    loop[:fade_n] = seg[:fade_n] * np.sin(x * np.pi / 2) + seg[
-        loop_n : loop_n + fade_n
-    ] * np.cos(x * np.pi / 2)
-
-    peak = np.max(np.abs(loop))
-    sys.stderr.write(
-        f"peak {peak:.4f}  seam delta {np.max(np.abs(loop[0] - loop[-1])):.5f}\n"
-    )
-    if peak > 0.98:
-        loop *= 0.98 / peak
-        sys.stderr.write(f"  (limited: scaled by {0.98 / peak:.3f})\n")
-
-    os.makedirs(OUT_DIR, exist_ok=True)
-    fd, raw_path = tempfile.mkstemp(suffix=".wav")
-    os.close(fd)
-    with wave.open(raw_path, "wb") as w:
-        w.setnchannels(2)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes((np.clip(loop, -1, 1) * 32767).astype(np.int16).tobytes())
-
-    # Two codecs because Opus is much smaller and older Safari only has AAC.
-    # Both get decoded to an AudioBuffer, which strips the encoder padding that
-    # would otherwise put a gap in the loop — see sound-mode.ts.
-    for name, enc in (
-        ("tanpura.opus", ["-c:a", "libopus", "-b:a", "64k"]),
-        ("tanpura.m4a", ["-c:a", "aac", "-b:a", "96k"]),
-    ):
-        dest = os.path.join(OUT_DIR, name)
-        subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", raw_path] + enc + [dest],
-            check=True,
-        )
-        sys.stderr.write(f"wrote {dest}  {os.path.getsize(dest) / 1024:.0f} KB\n")
-    os.remove(raw_path)
+    # No seam search here, unlike the ocean: the loop length is already pinned
+    # to the pluck cycle, and that constraint beats anything a search could find.
+    encode(crossfade_loop(seg, loop_n, fade_n), SR, OUT_DIR, "tanpura")
 
 
 if __name__ == "__main__":
