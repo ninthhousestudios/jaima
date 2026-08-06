@@ -11,4 +11,5 @@ docs/*.flac
 .ruff_cache/
 __pycache__/
 docs/*.mp3
-src-tauri/
+# src-tauri/ is source (the desktop shell), not a build artifact — its own
+# .gitignore covers target/ and the generated schemas.

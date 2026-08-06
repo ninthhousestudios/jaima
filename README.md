@@ -51,6 +51,27 @@ Astro with no UI framework — every component is plain TypeScript that builds
 and owns its own DOM. Three.js draws one canvas overlay for petals, smoke and
 embers. The only other runtime dependency is the browser.
 
+## The desktop app
+
+The same room, as an installable app. `src-tauri/` is a
+[Tauri](https://tauri.app) shell that loads the static build from `public/`
+into the system webview — no bundled browser, no second codebase, and nothing
+in `src/` knows or cares which of the two it is running in.
+
+```bash
+npm run app:dev      # build prerequisite: a Rust toolchain (rustup)
+npm run app:build    # release bundles for the platform you are on
+```
+
+The window is frameless on Linux only (`tauri.linux.conf.json` — a tiling WM
+neither needs nor misses the titlebar) and decorated on macOS and Windows,
+where the frame is how people move and close things. Platform files merge over
+`tauri.conf.json`, and a merge replaces the `windows` array wholesale, which is
+why the Linux file repeats the whole window rather than the one key it changes.
+
+Building for each platform, and what that requires, is written up in
+[`docs/desktop-release.md`](docs/desktop-release.md).
+
 ## Layout
 
 ```
