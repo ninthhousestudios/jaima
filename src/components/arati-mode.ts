@@ -1,6 +1,7 @@
 import { GRIP, type AratiLamp } from './arati-lamp';
 import { initAratiLyrics } from './arati-lyrics';
 import { createAratiPlayer } from './arati-player';
+import type { Mode } from './lotus-nav';
 
 /**
  * Ārati.
@@ -25,6 +26,26 @@ import { createAratiPlayer } from './arati-player';
  * channel arati-player.ts opens. That does not contradict the paragraph above.
  * The wave is the visitor's own offering and has no right answer; the words
  * are what is being sung this second, and there is exactly one of those.
+ *
+ * ## The rite outlives the mode
+ *
+ * An ārati is not a screen you are looking at, it is something happening in
+ * the room, and things are done to the altar while it happens: she is
+ * garlanded, and the photo she is being sung to may be changed. So the
+ * recording and the words hold their corner of the screen for as long as the
+ * recording plays, whatever mode is selected, and only a pause stops them.
+ *
+ * What that costs is the other three modes: japa, teachings and sound all take
+ * the whole room — the first two under a full-screen scrim, and the third by
+ * singing over her. Those are shut while the recording plays (ONGOING), which
+ * is the same statement read the other way round: what stays open is exactly
+ * what can be done *during* an ārati.
+ *
+ * The earlier rule was that leaving the mode paused the recording, and the
+ * reason was sound: a hidden iframe keeps playing, and the audio would follow
+ * you into japa with nothing on screen to explain it or turn it off. That
+ * reason is answered better here — the player is never hidden while it plays,
+ * so there is always something on screen to turn it off with.
  */
 
 /**
@@ -80,28 +101,38 @@ function clamp(n: number, lo: number, hi: number): number {
   return n < lo ? lo : n > hi ? hi : n;
 }
 
-interface AratiMode {
-  activate(): void;
-  deactivate(): void;
-}
+/**
+ * The modes an ārati in progress closes off. Japa and teachings drop a
+ * full-screen scrim over the altar; sound sings over her. None of the three is
+ * something anyone does *during* an ārati, and what is left out of this list —
+ * photo and garland — is exactly what they do.
+ */
+const ONGOING: readonly Mode[] = ['japa', 'teachings', 'sound'];
 
-let mode: AratiMode | null = null;
+let selectArati: ((selected: boolean) => void) | null = null;
 
 /**
- * Entering ārati mounts the player; leaving pauses it.
+ * Tells ārati whether it is the mode the visitor has chosen.
  *
- * The lamps themselves are live in every mode, like the bell — where a mode
- * owns their patch of screen (the garland canvas, the overlays) it already
- * sits above the shelves, so nothing needs gating here. Only the recording,
- * and the words that follow it, belong to the mode.
+ * Not the same question as whether the ārati is on screen: the recording keeps
+ * its corner for as long as it plays, so this only decides whether the panel
+ * is shown when nothing is playing. Call it after the overlay's `.active` has
+ * been settled — it measures the lyric column, and everything inside a
+ * display:none overlay measures 0.
+ *
+ * The lamps are live in every mode, like the bell, and are not gated here.
  */
-export function setAratiActive(active: boolean) {
-  if (!mode) return;
-  if (active) mode.activate();
-  else mode.deactivate();
+export function setAratiMode(selected: boolean) {
+  selectArati?.(selected);
 }
 
-export function initAratiMode(room: HTMLElement, altar: HTMLElement, lamps: readonly AratiLamp[]) {
+export function initAratiMode(
+  room: HTMLElement,
+  altar: HTMLElement,
+  lamps: readonly AratiLamp[],
+  /** Called with the modes that are unavailable while the ārati runs. */
+  onShut: (modes: readonly Mode[]) => void,
+) {
   const panel = document.createElement('div');
   panel.className = 'arati-overlay mode-overlay';
   panel.id = 'mode-arati';
@@ -249,28 +280,39 @@ export function initAratiMode(room: HTMLElement, altar: HTMLElement, lamps: read
     root.addEventListener('pointercancel', release);
   }
 
-  mode = {
-    activate() {
-      player.mount();
-      // Nothing in the lyric column could be measured until now: the overlay
-      // was display:none, so every height read 0.
-      lyrics.activate();
-    },
-    /**
-     * Stop the recording when the visitor leaves the mode.
-     *
-     * The overlay goes `display: none` around the iframe, and a hidden YouTube
-     * frame keeps playing — the audio would follow you into japa with nothing
-     * on screen to explain it or turn it off. So the frame is left mounted,
-     * keeping its position for when you come back, and told to pause over the
-     * postMessage channel `enablejsapi=1` opens.
-     *
-     * This is the one place where sound mode's rule is deliberately inverted.
-     * The beds are ambience and outlive their panel on purpose; the ārati is a
-     * rite with a beginning and an end, and it belongs to its own mode.
-     */
-    deactivate() {
-      player.pause();
-    },
+  /** Is ārati the mode the visitor has chosen? Not the same as being visible. */
+  let selected = false;
+
+  /**
+   * Puts the ārati on screen if it is either chosen or playing, and shuts the
+   * modes it cannot share the room with while it plays.
+   *
+   * Both halves have to run on a state change as well as on a mode change,
+   * hence `player.onChange` below: pressing play in YouTube's own controls has
+   * to close the other petals, and pausing has to hand them back.
+   */
+  function sync() {
+    const playing = player.playing();
+    panel.classList.toggle('active', selected || playing);
+    // What is left on screen when the ārati plays on under another mode is the
+    // recording and the words, not the two lines of instruction: those belong
+    // to the mode you chose, and over a photo you came to look at they are
+    // just captions in the way.
+    panel.classList.toggle('chosen', selected);
+    // Only once `.active` is on: the lyric column measures itself, and every
+    // height inside a display:none overlay reads 0. A zeroed measurement does
+    // not go stale, it freezes the column dead.
+    if (selected || playing) lyrics.activate();
+    onShut(playing ? ONGOING : []);
+  }
+
+  player.onChange(sync);
+
+  selectArati = next => {
+    selected = next;
+    // Mounted on first entry and never at init, so a visitor who does not open
+    // ārati mode never talks to YouTube at all.
+    if (next) player.mount();
+    sync();
   };
 }

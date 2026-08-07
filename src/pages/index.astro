@@ -35,10 +35,12 @@ import Base from '../layouts/Base.astro';
     destroyTeachings,
   } from '../components/teachings-mode';
   import { initSoundMode } from '../components/sound-mode';
-  import { initAratiMode, setAratiActive } from '../components/arati-mode';
-  import type { Mode } from '../components/lotus-nav';
+  import { initAratiMode, setAratiMode } from '../components/arati-mode';
+  import type { LotusNav, Mode } from '../components/lotus-nav';
 
   let modesInitialized = false;
+  /** Set the moment the room is entered, and before initModes runs. */
+  let lotus: LotusNav | null = null;
 
   function initModes() {
     if (modesInitialized) return;
@@ -56,7 +58,13 @@ import Base from '../layouts/Base.astro';
     // is handed their setters rather than building a lamp of its own. The bell
     // is not passed: it is live in every mode and runs itself, and all arati
     // contributes is the line explaining how to ring it.
-    initAratiMode(room, document.getElementById('altar')!, altar.aratiLamps);
+    //
+    // It also closes petals: a rite in progress is the one thing on this site
+    // that takes a mode away from the visitor, and arati names which ones —
+    // the lotus only has to obey.
+    initAratiMode(room, document.getElementById('altar')!, altar.aratiLamps, modes =>
+      lotus?.setDisabled(modes),
+    );
   }
 
   function handleModeChange(mode: Mode | null) {
@@ -65,25 +73,27 @@ import Base from '../layouts/Base.astro';
     });
     if (mode !== 'japa') destroyJapa();
     if (mode !== 'teachings') destroyTeachings();
-    // BEFORE the early return, both of them. Clicking a lit petal closes the
-    // modes altogether and arrives here with mode === null, and returning
-    // first would leave the arati playing on behind an overlay that is no
-    // longer on screen.
+    // BEFORE the early return. Clicking a lit petal closes the modes
+    // altogether and arrives here with mode === null.
     //
     // The garland canvas only takes the pointer inside its own mode; the
     // garlands themselves stay on the altar either way.
     setGarlandActive(mode === 'garland');
-    // For arati this governs only the recording — leaving pauses it, which a
-    // hidden iframe would not do. The lamps and the bell are not gated: both
-    // are live in every mode and run themselves.
-    setAratiActive(mode === 'arati');
-    if (!mode) return;
-    const overlay = document.getElementById(`mode-${mode}`);
-    if (overlay) overlay.classList.add('active');
-    // After .active, never before: both of these measure a scrolling column,
-    // and everything in a display:none overlay measures 0.
-    if (mode === 'japa') activateJapa();
-    if (mode === 'teachings') activateTeachings();
+    if (mode) {
+      const overlay = document.getElementById(`mode-${mode}`);
+      if (overlay) overlay.classList.add('active');
+      // After .active, never before: both of these measure a scrolling column,
+      // and everything in a display:none overlay measures 0.
+      if (mode === 'japa') activateJapa();
+      if (mode === 'teachings') activateTeachings();
+    }
+    // Last, and outside the branch, for two reasons. Arati owns whether its
+    // own overlay is on screen — the recording keeps its corner for as long as
+    // it plays, whatever mode is chosen — so it must have the final say over
+    // the .active this function has just been handing out. And it measures the
+    // lyric column, which is the same rule japa and teachings follow above.
+    // The lamps and the bell are not gated here: both are live in every mode.
+    setAratiMode(mode === 'arati');
   }
 
   function initAtmosphere() {
@@ -142,7 +152,8 @@ import Base from '../layouts/Base.astro';
       if (canvas) altar.attachParticles(initParticles(canvas));
 
       const lotusContainer = document.getElementById('lotus-container')!;
-      initLotusNav(lotusContainer, handleModeChange);
+      // Kept, not discarded: an arati in progress closes some of its petals.
+      lotus = initLotusNav(lotusContainer, handleModeChange);
 
       initModes();
     }
@@ -1715,11 +1726,19 @@ import Base from '../layouts/Base.astro';
      caption under the player rather than as an instruction panel. */
   .arati-hint {
     margin: 0;
+    /* Only while ārati is the mode you chose. The recording plays on under
+       photo and garland, and there the panel is a player and a lyric column,
+       not a set of instructions for a rite you are already performing. */
+    display: none;
     max-width: clamp(360px, 26vw, 440px);
     color: hsla(30, 30%, 68%, 0.7);
     font-size: 0.8rem;
     line-height: 1.5;
     text-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.8);
+  }
+
+  .arati-overlay.chosen .arati-hint {
+    display: block;
   }
 
   /* The words, below the hints. Quiet and closed: the rite is the lamp and the
@@ -1851,10 +1870,18 @@ import Base from '../layouts/Base.astro';
   }
 
   /* Only offered once the column has been scrolled off the recording — until
-     then it is a button that does nothing, and says so by not being there. */
+     then it is a button that does nothing, and says so by not being there.
+
+     Floated over the foot of the stage rather than laid out under it: in flow
+     it takes its height out of the stage as it appears, which moves the
+     reading line (READ_LINE is a fraction of the stage) under the very drag
+     that summoned it. The bottom of the stage is masked to transparent
+     anyway, so it sits over faded-out text and covers nothing readable. */
   .arati-lyrics-follow {
     display: none;
-    align-self: flex-end;
+    position: absolute;
+    bottom: 0;
+    right: 0;
     background: hsla(30, 20%, 30%, 0.5);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #d4b89a;

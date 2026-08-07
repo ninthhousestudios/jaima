@@ -375,6 +375,27 @@ The lamps waved are the two already on the wall, not a third the mode conjures.
 The shelf standing visibly empty while you hold one is half of what makes it
 read as arati rather than as a widget.
 
+### The rite outlives the mode
+
+**While the recording plays, the player and the words hold their corner of the
+screen whatever mode is selected, and only a pause stops them.** An arati is not
+a screen you are looking at, it is something happening in the room, and things
+are done to the altar while it happens: she is garlanded, and the photo she is
+being sung to may be changed.
+
+The price is the other three petals. Japa, teachings and sound are **shut while
+the recording plays** — `ONGOING` in `arati-mode.ts`, handed to the lotus's
+`setDisabled`. The first two drop a full-screen scrim over the altar and the
+third sings over her; none is a thing anyone does during an arati. Read the
+other way round, what stays open — photo and garland — is exactly what they do.
+A pause hands the petals straight back.
+
+Two consequences to keep in mind. The overlay's `.active` is arati's to set,
+which is why `setAratiMode` runs *last* in `handleModeChange`, after that
+function has finished handing `.active` out. And the two hint lines are `.chosen`
+only: what plays on under photo or garland is a player and a lyric column, not
+instructions for a rite already under way.
+
 ### The player
 
 `arati-player.ts`. An `<iframe>`, no YouTube API script, built on first entry
@@ -382,15 +403,18 @@ and never at init — a visitor who does not open arati mode never talks to
 YouTube at all. `youtube-nocookie.com`, no autoplay parameter anywhere, and the
 video id is one constant at its top (`docs/arati-youtube.md` is the source).
 
-**Leaving the mode pauses it, and this is the one place sound mode's rule is
-deliberately inverted.** The beds outlive their panel because ambience should;
-the arati is a rite with a beginning and an end. The mechanism matters: the
-overlay goes `display: none` around the iframe and *a hidden YouTube frame keeps
-playing* — the audio would follow you into japa with nothing on screen to
-explain it or turn it off. So the frame stays mounted, keeping its position for
-when you come back, and is told to pause over the postMessage channel that
-`enablejsapi=1` opens. Verified against the real player: it pauses, stays
-paused, and returns holding its position rather than restarting.
+**A hidden YouTube frame keeps playing**, and that fact is why the rule above is
+what it is. The overlay goes `display: none` around the iframe, so a mode that
+took the arati off screen without pausing would send the audio into japa with
+nothing there to explain it or turn it off. The mode gating answers that at the
+other end — the player is never hidden while it plays, so there is always
+something on screen to stop it with — and the frame is never torn down either
+way, because unmounting it loses the position and re-costs the load.
+
+Pausing still goes over the postMessage channel `enablejsapi=1` opens, and is
+what the lyrics' own play button and the mode's own state both ride on. Verified
+against the real player: it pauses, stays paused, and returns holding its
+position rather than restarting.
 
 **Both directions of that channel are used**, and the inbound one is what the
 lyrics run on. Send `{event: 'listening'}` and the player answers with
@@ -435,6 +459,20 @@ left shelf and its arati lamp are at `--shelf-y` (44vh from the bottom, lamp
 8vh above). A panel with `pointer-events` there would sit on the one thing the
 mode exists to let you pick up. `--lyrics-h` is capped for the same reason —
 raise `--shelf-y` and it has room to grow, lower it and this must shrink first.
+
+**The column cannot be measured while the overlay is `display: none`**, and this
+is worse than the equivalent in japa, not the same. There every height reads 0;
+here a zeroed measurement *freezes the column dead* — `apply` clamps the offset
+into a track of no height, so afterwards no drag, no Follow and no report from
+the player can move the words again, and nothing is logged. That is why
+`setAratiMode` runs after `.active` and why `measure()` refuses to run against a
+zero-height stage at all. Both, deliberately: the order is the contract and the
+guard is the net.
+
+The Follow button is positioned `absolute` over the foot of the stage rather
+than laid out under it. In flow it takes its own height out of the stage as it
+appears, and `READ_LINE` is a fraction of the stage, so the reading line moves
+under the very drag that summoned it.
 
 #### The two timing numbers
 
@@ -485,8 +523,9 @@ nothing, exactly like the garlands.
 
 Two things are load-bearing and invisible:
 
-- The lamps are **live in every mode**, like the bell — `setAratiActive` only
-  mounts and pauses the recording. A stray grab cannot eat a click meant for a
+- The lamps are **live in every mode**, like the bell — `setAratiMode` only
+  mounts the recording and decides what is on screen. A stray grab cannot eat a
+  click meant for a
   garland because the garland canvas (z 7) sits above the shelves (z 5) and
   takes the pointer inside its own mode; that z-order is what makes the
   ungated lamps safe, so don't reorder it.

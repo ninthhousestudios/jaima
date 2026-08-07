@@ -195,6 +195,14 @@ export function initAratiLyrics(overlay: HTMLElement, player: AratiPlayer): Lyri
   }
 
   function measure() {
+    // Nothing here can be measured while the overlay around it is display:none
+    // — every height reads 0, and a zeroed measurement does not merely go
+    // stale, it *freezes the column*: `apply` clamps the offset to a track of
+    // no height, so the words stop moving and no drag, Follow or seek can
+    // shift them again. The guard is the safety net; the call order (measure
+    // only once the overlay is on screen) is the actual contract.
+    if (stage.clientHeight === 0) return;
+
     const els = Array.from(track.children) as HTMLElement[];
     tops = els.map(el => el.offsetTop);
     tops.push(track.offsetHeight);

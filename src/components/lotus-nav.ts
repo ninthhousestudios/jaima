@@ -4,6 +4,15 @@ export interface LotusNav {
   element: HTMLElement;
   activeMode: Mode | null;
   onModeChange: (mode: Mode | null) => void;
+  /**
+   * Modes that cannot be chosen at this moment, dimmed and inert.
+   *
+   * A rite in progress is the only thing that uses this: while the ārati is
+   * playing, the modes that would cover the altar or sing over it are closed
+   * off. Replaces the whole set each call — the caller states what is shut,
+   * not what changed.
+   */
+  setDisabled: (modes: readonly Mode[]) => void;
 }
 
 interface PetalDef {
@@ -65,6 +74,7 @@ function createPetalPath(angle: number, open: boolean): string {
 export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode | null) => void): LotusNav {
   let isOpen = false;
   let activeMode: Mode | null = null;
+  let shut: ReadonlySet<Mode> = new Set();
 
   const wrapper = document.createElement('div');
   wrapper.className = 'lotus-nav';
@@ -132,6 +142,18 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
     });
   }
 
+  /** A petal is shut if it was born disabled or has been closed off since. */
+  function isShut(mode: Mode): boolean {
+    return PETALS.find(p => p.mode === mode)?.disabled === true || shut.has(mode);
+  }
+
+  function setDisabled(modes: readonly Mode[]) {
+    shut = new Set(modes);
+    for (const el of [...petalEls, ...labelEls]) {
+      el.classList.toggle('disabled', isShut(el.dataset.mode as Mode));
+    }
+  }
+
   function setActiveGlow(mode: Mode | null) {
     if (mode) {
       glow.classList.add('active');
@@ -166,8 +188,7 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
       if (!isOpen) return;
 
       const mode = el.dataset.mode as Mode;
-      const def = PETALS.find(p => p.mode === mode);
-      if (def?.disabled) return;
+      if (isShut(mode)) return;
 
       if (activeMode === mode) {
         activeMode = null;
@@ -201,5 +222,6 @@ export function initLotusNav(container: HTMLElement, onModeChange: (mode: Mode |
     element: wrapper,
     get activeMode() { return activeMode; },
     onModeChange,
+    setDisabled,
   };
 }
