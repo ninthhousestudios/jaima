@@ -46,7 +46,7 @@ sahaja samādhi sudanye devī amṛtānandamayī
 
 mātā amṛtānandamayī /8
 
-om jaya jaya jagajjananī vande amṛtānandamayī
+oṃ jaya jaya jagajjananī vande amṛtānandamayī
 
 maṅgala ārati mātaḥ bhavāni amṛtānandamayī
 
@@ -55,3 +55,13 @@ mātā amṛtānandamayī /1
 jai bolo sadguru mātā amṛtānandamayī devī kī
 
 jai
+
+---
+
+asato mā sadgamaya
+
+tamaso mā jyotirgamaya
+
+mṛtyormā 'mṛtaṃ gamaya
+
+oṃ śāntiḥ śāntiḥ śāntiḥ

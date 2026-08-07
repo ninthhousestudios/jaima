@@ -445,6 +445,13 @@ use than one you have finished. Sources are `docs/arati-{deva,iast,mal}.md`,
 imported `?raw` at build time exactly as the teachings are, and offered in japa's
 three scripts under japa's own labels.
 
+The bhajan is followed by `jai bolo` and then by the `asato mā` mantra, which is
+a different chant sung over its own span. A `---` rule in the sources separates
+them: the verse markers (`/1`…`/8`) end a stanza, and these two carry none, so
+without the rule they would run together into one unit and the mantra would be
+dragged forward onto the `jai`. One stanza per `CUES` row is the invariant, and
+the tool asserts it.
+
 The column runs off `player.time()` every frame rather than a clock of its own,
 so pausing pauses it, seeking moves it and it cannot drift. Play here is play
 there and play there lights the button here. Scrolling the column by hand
@@ -474,18 +481,53 @@ than laid out under it. In flow it takes its own height out of the stage as it
 appears, and `READ_LINE` is a fraction of the stage, so the reading line moves
 under the very drag that summoned it.
 
-#### The two timing numbers
+#### The cue sheet
 
-`LEAD_S` and `STANZA_S`, measured by `tools/arati-timing.py` from
-`docs/arati-master.webm` (gitignored like the ocean masters — the recording is
-the Math's, only the numbers ship). **Read the tool's output rather than
-hand-tuning them.**
+`CUES` — one measured start per stanza — plus `END_S`. Measured by
+`tools/arati-timing.py` from `docs/arati-master.webm` (gitignored like the
+ocean masters — the recording is the Math's, only the numbers ship). **Read the
+tool's output rather than hand-tuning a row.** It prints the array ready to
+paste, and a table of each stanza's span with its first line beside it, which
+is how you check a row is on the verse it claims.
 
-Two numbers are the whole cue sheet because the bhajan is strictly strophic,
-and the tool demonstrates that rather than assuming it: the chroma
-self-similarity has one peak, at 36.46 s, with its 2x and 3x harmonics and
-nothing else near, and the same peak comes back when only the sung part is
-measured.
+**This used to be two numbers, a lead-in and one stanza length, and it was
+wrong.** The bhajan is strophic in its melody but not in its tempo: 36.46 s a
+stanza for five stanzas, then a hard accelerando at `patitoddhāra` to about
+17.6, back near the opening pace for the `om jaya jaya` reprise, then `jai bolo`
+and the `asato mā` mantra, which is not the bhajan at all. A constant put `jai
+bolo` 40 s late — more than a whole stanza — and the last third simply stopped
+following the voice. Self-similarity did not lie about this; it was never
+asked. **One lag reports the dominant period quite happily while three stanzas
+run at twice the speed**, so do not read a single clean peak as proof of a
+single tempo.
+
+The structure comes from the words and the timing from the audio, in that
+order. `docs/arati-iast.md` says how many stanzas there are and which is the
+reprise — the stanza that repeats the opening's lines — and the tool asserts
+its cue count against that. A stanza added to the sources without a cue fails
+the run instead of quietly shifting the whole bhajan.
+
+Each stage is checked against another, because none of them is trustworthy
+alone:
+
+- **The strophic head** is found by matching each cycle against the *opening*,
+  at the *fixed* period. Both matter. Against the previous stanza it follows a
+  change instead of reporting one; at a searched length it is worse still,
+  because after a doubling in tempo one cycle of the old length holds two whole
+  stanzas and matches itself well enough to pass — which is exactly what an
+  earlier cut did, swallowing the first fast stanza in silence. As written the
+  scores are 1.00, 0.72, 0.47, 0.41, 0.43 and then **−0.05**; the break is not
+  a judgement call.
+- **The reprise** is the opening's own chroma slid along the rest of the
+  recording over a range of tempi. It peaks a second time at 278.0 s.
+- **The fast run** is placed by spacing those stanzas evenly and sliding the
+  group, and then checked against something that was told nothing about it:
+  self-similarity *inside that stretch alone*. The fit says 17.58 s and the
+  stretch says 17.65 s.
+- **`jai bolo` and the mantra** match no template, being different music, so
+  they are found as the sharpest chroma changes after the reprise and snapped
+  onto the nearest voice onset. Both are found twice over that way, and that
+  agreement is the only reason they are trusted.
 
 **The phase is read off the voice band, and it has to be.** The arati opens
 with one full instrumental cycle of the same melody, so anything that reads
@@ -498,11 +540,11 @@ period over the sung part and you get one stanza's shape averaged over all of
 them — three troughs, one breath per line, the deepest being the gap between
 stanzas — and the stanza begins where it climbs back through its mean.
 
-Inside a stanza the lines are spread evenly: exact at every stanza boundary, a
-second or so out in between. The one place that shows is the closing `jai`,
-because the last stanza is a 13 s coda given a full stanza's slot. Better than
-this needs an ear, and it needs `LEAD_S` checked first — a constant offset is
-what gets noticed, a stanza's inner drift is not.
+Inside a stanza the lines are still spread evenly across its own span: exact at
+every boundary, a second or so out in between. Stanzas are sung for 86–97% of
+their span and the rest is the interlude, so a slow stanza's last line lights a
+little early. Better than that needs an ear, and it needs the boundaries
+checked first — those are what gets noticed, a stanza's inner drift is not.
 
 ### The wave
 

@@ -28,37 +28,69 @@ import type { AratiPlayer } from './arati-player';
  * should not be dragged back four times a second. A Follow button appears to
  * put it back on the recording, and pressing play does the same.
  *
- * ## Where the two timing numbers come from
+ * ## Where the timing comes from
  *
- * Measured off the recording by `tools/arati-timing.py`, which prints them —
- * do not hand-tune them without reading its output first. The bhajan is
- * strictly strophic: ten stanzas to one melody at one tempo, so where the
- * first one starts and how long one lasts is the entire cue sheet.
+ * `CUES` — one measured start per stanza — and nothing else. Measured off the
+ * recording by `tools/arati-timing.py`, which prints the whole table; do not
+ * hand-tune a row without reading its output first.
  *
- * `LEAD_S` is the one that has to be right, and it is not the start of the
- * recording's music. The arati opens with one full instrumental cycle of the
- * same melody, so the singing begins a whole stanza in — get that wrong and
- * the column runs a line or more ahead of the voice the whole way through,
- * which is precisely what a first cut of this did. The tool reads the phase
- * off the voice band for that reason; nothing that reads harmony can tell the
- * instrumental cycle from a sung one.
+ * **This used to be two numbers, a lead-in and one stanza length, and that was
+ * wrong.** The bhajan is strophic in its melody but not in its tempo. It runs
+ * at 36.46 s a stanza for five stanzas, then accelerates hard at
+ * `patitoddhāra` to about 17.5 s, comes back to something near the original
+ * pace for the `om jaya jaya` reprise, and closes on `jai bolo` and a
+ * different chant altogether. A constant put the last third of the recording
+ * out by more than a whole stanza — 40 s at `jai bolo` — which reads as the
+ * words having simply stopped following the voice.
  *
- * Inside a stanza the lines are spread evenly, which is exact at every stanza
- * boundary and can be a second or so out in between. That is the known limit
- * of two numbers, and it is deliberate: a per-line cue sheet is 29 numbers
- * that no tool can check and every re-upload of the recording invalidates.
- * The one place it shows is the closing `jai`, since the last stanza is a 13 s
- * coda given a full stanza's slot.
+ * The first entry still carries the weight the old lead-in did, and for the
+ * same reason: the arati opens with one full instrumental cycle of the same
+ * melody, so the singing begins a whole stanza in. Nothing that reads harmony
+ * can tell that cycle from a sung one, which is why the tool reads the phase
+ * off the voice band.
+ *
+ * Inside a stanza the lines are still spread evenly across its own span, which
+ * is exact at every boundary and can be a second or so out in between. The
+ * stanzas are sung for 85–99% of their span and the rest is the interlude, so
+ * the last line of a slow stanza lights a little early. Bettering that needs
+ * a per-line cue sheet and an ear, and the boundaries are what an ear notices.
  */
 
 /**
- * Measured by tools/arati-timing.py. Seconds of instrumental opening before
- * the first sung stanza — very nearly one whole stanza of it.
+ * Where each stanza starts being sung, in seconds. Measured by
+ * tools/arati-timing.py — read its table rather than editing a row by feel.
+ *
+ * **One entry per stanza of the sources, in their order.** The three scripts
+ * hold the same stanzas, so one table serves all of them; if the sources gain
+ * or lose a stanza this must gain or lose a row, and the tool asserts the
+ * count for exactly that reason.
+ *
+ * Confidence is not even down the table, and the tool says so per row. The
+ * first five are the recording's own period, to the centisecond. The three
+ * fast ones and the reprise come from a fit that three independent
+ * measurements agree on. `jai bolo` and the closing mantra are section
+ * boundaries, found twice over — by structural novelty and by the silence in
+ * front of them.
  */
-const LEAD_S = 36.72;
+const CUES = [
+  36.72, // oṃ jaya jaya — the singing, one instrumental cycle in
+  73.18,
+  109.63,
+  146.09,
+  182.55, // this one carries the accelerando, so it runs long
+  225.25, // patitoddhāra — and from here a stanza is half as long
+  242.83,
+  260.42,
+  278.0, // oṃ jaya jaya again, back near the opening pace
+  324.61, // jai bolo
+  339.27, // asato mā sadgamaya, a different chant to close on
+];
 
-/** Measured by tools/arati-timing.py. Seconds of one stanza. */
-const STANZA_S = 36.46;
+/**
+ * Where the singing stops, closing the last stanza's span. Not the end of the
+ * recording: there is applause and then silence after this.
+ */
+const END_S = 378.1;
 
 /**
  * Where the line being sung sits, as a fraction of the column's height. Above
@@ -96,23 +128,30 @@ const STANZA_END = /\s*\/\s*[0-9०-९൦-൯]+\s*$/;
 /**
  * Blank-line separated lines, gathered into stanzas at the verse markers.
  *
- * The closing `jai bolo` and `jai` carry no marker and fall through into a
- * last stanza of their own, which is right: they are sung to the same melody
- * over the same span as the eight verses and the reprise before them.
+ * The closing `jai bolo` and `jai` carry no marker, and neither does the
+ * `asato mā` mantra that follows them: they are not verses of the bhajan. A
+ * `---` rule in the source divides them, because they are sung over separate
+ * spans and the cue sheet has a row for each — run them together and the
+ * mantra would be dragged forward onto the `jai`.
  */
 function parse(source: string): string[][] {
   const stanzas: string[][] = [];
   let current: string[] = [];
+  const close = () => {
+    if (current.length > 0) stanzas.push(current);
+    current = [];
+  };
   for (const block of source.split(/\n\s*\n/)) {
     const line = block.replace(/\s+/g, ' ').trim();
     if (!line) continue;
-    current.push(line.replace(STANZA_END, ''));
-    if (STANZA_END.test(line)) {
-      stanzas.push(current);
-      current = [];
+    if (/^-{3,}$/.test(line)) {
+      close();
+      continue;
     }
+    current.push(line.replace(STANZA_END, ''));
+    if (STANZA_END.test(line)) close();
   }
-  if (current.length > 0) stanzas.push(current);
+  close();
   return stanzas;
 }
 
@@ -227,16 +266,28 @@ export function initAratiLyrics(overlay: HTMLElement, player: AratiPlayer): Lyri
     return tops[i] + (tops[i + 1] - tops[i]) * (p - i);
   }
 
-  /** How far into the text, in fractional lines, the recording has sung. */
+  /**
+   * How far into the text, in fractional lines, the recording has sung.
+   *
+   * Walks the cue sheet rather than dividing by a stanza length, which is the
+   * whole of the fix for a bhajan that changes tempo: each stanza is spread
+   * across its own measured span, so an accelerando costs the following
+   * stanzas nothing. A stanza with no cue of its own — the sources gaining a
+   * verse the table has not been told about — is left off the end rather than
+   * silently shifting every stanza before it.
+   */
   function linePos(time: number): number {
     const stanzas = TEXTS[script];
-    if (time <= LEAD_S || stanzas.length === 0) return 0;
-    const s = (time - LEAD_S) / STANZA_S;
-    const i = Math.floor(s);
+    const n = Math.min(stanzas.length, CUES.length);
+    if (n === 0 || time <= CUES[0]) return 0;
+
     let line = 0;
-    for (let k = 0; k < Math.min(i, stanzas.length); k++) line += stanzas[k].length;
-    if (i >= stanzas.length) return line;
-    return line + (s - i) * stanzas[i].length;
+    for (let k = 0; k < n; k++) {
+      const ends = k + 1 < n ? CUES[k + 1] : END_S;
+      if (time < ends) return line + ((time - CUES[k]) / (ends - CUES[k])) * stanzas[k].length;
+      line += stanzas[k].length;
+    }
+    return line;
   }
 
   function apply() {
@@ -248,7 +299,7 @@ export function initAratiLyrics(overlay: HTMLElement, player: AratiPlayer): Lyri
     // reached the first stanza: a lit line is a claim about what is being sung
     // this second, and in either of those states there is no such claim to
     // make. Someone reading ahead by hand is reading, not being led.
-    const lit = following && player.time() >= LEAD_S ? indexAt(offset) : -1;
+    const lit = following && player.time() >= CUES[0] ? indexAt(offset) : -1;
     const els = track.children;
     for (let i = 0; i < els.length; i++) els[i].classList.toggle('current', i === lit);
   }
