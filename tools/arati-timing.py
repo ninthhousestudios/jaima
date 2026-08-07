@@ -9,25 +9,42 @@ begins, and how long one stanza lasts. Both go to `LEAD_S` and `STANZA_S` in
 `src/components/arati-lyrics.ts`. The recording itself never ships — it is the
 Math's — so this script is how those two numbers can be checked.
 
-Two numbers is enough because this bhajan is strictly strophic: ten stanzas to
-one melody, sung at one tempo, with no bridge and no repeat that is not itself
-a stanza. That is not an assumption — it is what the measurement finds:
+Two numbers is enough because this bhajan is strictly strophic: one melody at
+one tempo, with no bridge and no repeat that is not itself a stanza. That is
+not an assumption — it is what the period measurement finds. The chroma
+self-similarity at every lag has one peak, at 36.46 s, with its harmonics at 2x
+and 3x and nothing else near the floor; a song with a bridge does not do that.
+The same peak comes back at 36.46 s when only the sung part is measured.
 
-  * The period comes from the chroma self-similarity at every lag. One peak,
-    at 36.47 s, with its harmonics at 2x and 3x and nothing else above the
-    floor. A song with a bridge does not do that.
-  * The phase comes from a checkerboard novelty curve: of every offset within
-    one period, which one puts all ten boundaries on a moment where the music
-    changes. The winner is sharp — the runners-up are its own neighbours a
-    twentieth of a second away, not some other part of the bar.
-  * Ten cycles then fill the recording from the phase to its last second, and
-    the text has exactly ten stanzas.
+**The phase is measured off the singing, and it has to be.** The first attempt
+read it from a chroma novelty curve — of every offset within one period, which
+puts the boundaries on a moment where the music changes — and it was wrong by
+14.6 s, which the browser showed as the highlight running a good line ahead of
+the voice. The reason is worth keeping: this recording opens with one full
+instrumental cycle of the same melody. Anything reading harmony cannot tell
+that cycle from a sung one, so it locks onto the arrangement instead of the
+words. The voice band can:
 
-What it cannot tell you is which line inside a stanza is being sung when. The
-web side spreads a stanza's lines evenly across its period, which is right at
-every stanza boundary and can be a second or two out in between. If you want
-better, you have to listen — but retune LEAD_S first, since a constant error
-there is what an ear notices, and a stanza's inner drift is not.
+  * A 500-4000 Hz envelope has a floor of 27 dB through the intro and 54 dB
+    once the singing starts. The onset is unambiguous at 36.6 s, the end at
+    378.1 s.
+  * Folding that envelope at the period, over the sung part only, gives one
+    stanza's shape averaged over all of them. It has three troughs — the
+    breaths after each of the three lines — and the deepest is the gap between
+    stanzas. Where the envelope climbs back through its mean after that gap is
+    where a stanza begins.
+
+That lands the ten stanzas at 36.68 s + 36.46k. The last of them is the short
+`jai bolo` coda: singing stops at 378.1 s, so it gets 13 s of a 36.46 s slot,
+and its second line lights near the end of the recording rather than on the
+shout. Two constants buy everything else and not that; it was not worth a
+third.
+
+What none of this can tell you is which line inside a stanza is being sung
+when. The web side spreads a stanza's lines evenly across its period, which is
+right at every stanza boundary and can be a second or two out in between. If
+you want better you have to listen — but check LEAD_S first, since a constant
+error there is what an ear notices and a stanza's inner drift is not.
 """
 
 import sys
@@ -54,15 +71,19 @@ TREND_S = 6.0
 # which is constant and would flatten every distinction; above it is breath.
 F_LO, F_HI = 80.0, 2000.0
 
-# Half-width of the checkerboard kernel the novelty curve is read off, in
-# seconds. It has to span enough music that a stanza boundary looks like a
-# change and a phrase boundary inside a stanza does not.
-KERNEL_S = 8.0
+# The voice band the phase is read off. Above the drone and the harmonium's
+# fundamentals, below the point where all that is left is breath and cymbal.
+V_LO, V_HI = 500.0, 4000.0
 
-# The recording ends on the last stanza rather than trailing off, so a final
-# cycle running a little past the file is expected. More than this and the
-# period or the phase is wrong.
-OVERRUN_S = 5.0
+# The voice envelope is smoothed over this long before anything is read off it.
+# A syllable's own gaps are shorter than this and a breath between lines is
+# not, which is the whole distinction the fold depends on.
+SMOOTH_S = 1.0
+
+# The singing is taken to have started once the envelope is over the threshold
+# and stays there for this long. Long enough that a single loud stroke in the
+# intro cannot pass for a voice.
+HOLD_S = 4.0
 
 
 def chromagram(sig):
@@ -100,34 +121,76 @@ def period(chroma, fps):
     return lags[int(np.argmax(lift))] / fps, score, lags, trend, lift
 
 
-def novelty(chroma, fps):
-    """Checkerboard novelty: how unlike the next few seconds are the last few."""
-    half = int(KERNEL_S * fps)
-    taper = np.outer(np.hanning(2 * half), np.hanning(2 * half))
-    kernel = np.ones((2 * half, 2 * half))
-    kernel[:half, half:] = -1
-    kernel[half:, :half] = -1
-    kernel *= taper
+def voice(sig):
+    """Smoothed level in the voice band, in dB. The 'someone is singing' curve."""
+    win = np.hanning(NFFT)
+    frames = 1 + (len(sig) - NFFT) // HOP
+    freqs = np.fft.rfftfreq(NFFT, 1 / SR)
+    band = (freqs > V_LO) & (freqs < V_HI)
 
-    sim = chroma @ chroma.T
-    nov = np.zeros(len(chroma))
-    for i in range(half, len(chroma) - half):
-        nov[i] = np.sum(sim[i - half : i + half, i - half : i + half] * kernel)
-    nov = np.maximum(nov, 0.0)
-    return nov / (nov.max() + 1e-9), half
+    env = np.empty(frames)
+    for i in range(frames):
+        env[i] = np.abs(np.fft.rfft(sig[i * HOP : i * HOP + NFFT] * win))[band].sum()
+    env = 20 * np.log10(env + 1e-9)
+
+    fps = SR / HOP
+    k = int(SMOOTH_S * fps)
+    return np.convolve(env, np.ones(k) / k, mode="same"), fps
 
 
-def phase(nov, half, p, fps, dur):
-    """Which offset within one period lands every boundary on a change."""
-    scored = []
-    for phi in np.arange(0, p, 0.05):
-        idx = (np.arange(phi, dur, p) * fps).astype(int)
-        idx = idx[(idx >= half) & (idx < len(nov) - half)]
-        if len(idx) < 6:
-            continue
-        scored.append((float(nov[idx].mean()), float(phi)))
-    scored.sort(reverse=True)
-    return scored
+def sung_span(env, fps):
+    """When the singing starts and stops, and the two levels that decide it."""
+    # Both levels are read off the recording rather than assumed: the intro's
+    # own floor, and the median of the middle of the piece, which is singing by
+    # any reading. Halfway between them separates the two by a wide margin.
+    floor = float(np.percentile(env[: int(25 * fps)], 60))
+    sung = float(np.percentile(env[int(60 * fps) : int(280 * fps)], 50))
+    threshold = (floor + sung) / 2
+
+    hold = int(HOLD_S * fps)
+
+    def edge(order):
+        for i in order:
+            window = env[i : i + hold] if i < len(env) // 2 else env[i - hold : i]
+            if env[i] > threshold and (window > threshold - 3).mean() > 0.9:
+                return i / fps
+        return None
+
+    start = edge(range(len(env) - hold))
+    end = edge(range(len(env) - hold, hold, -1))
+    return start, end, floor, sung, threshold
+
+
+def phase(env, fps, p, start, end):
+    """
+    Where in the cycle a stanza begins, averaged over every stanza there is.
+
+    Folding the voice envelope at the period gives one stanza's shape: three
+    troughs, one per line, the deepest of them the gap between stanzas. The
+    stanza begins where the envelope climbs back through its own mean out of
+    that gap.
+
+    The first sung cycle is left out of the fold. It is the one the voice comes
+    in on, so its opening is a step up from an instrumental floor rather than
+    the breath every other stanza opens after, and averaging it in drags the
+    crossing early.
+    """
+    lo = start + p
+    seg = env[int(lo * fps) : int(end * fps)]
+    bins = 292
+    at = (((np.arange(len(seg)) / fps + lo) % p) / p * bins).astype(int) % bins
+    profile = np.array([seg[at == k].mean() for k in range(bins)])
+    profile -= profile.mean()
+
+    trough = int(np.argmin(profile))
+    k = trough
+    while profile[k % bins] <= 0 and k - trough <= bins:
+        k += 1
+    # Interpolate the crossing rather than taking the bin, so the answer does
+    # not step by a quarter second with the histogram.
+    before, after = profile[(k - 1) % bins], profile[k % bins]
+    frac = -before / (after - before)
+    return ((k - 1 + frac) % bins) / bins * p, profile, trough
 
 
 def main():
@@ -163,24 +226,33 @@ def main():
     for v, s in rival:
         print(f"    {s:6.2f} s  {v:+.4f}")
 
-    nov, half = novelty(chroma, fps)
-    scored = phase(nov, half, p, fps, dur)
-    lead = scored[0][1]
-    print(f"\nfirst stanza   {lead:.2f} s")
-    print(
-        "  best offsets: " + ", ".join(f"{phi:.2f}s ({v:.3f})" for v, phi in scored[:5])
+    env, vfps = voice(sig)
+    start, end, floor, sung, threshold = sung_span(env, vfps)
+    print(f"\nvoice band     intro floor {floor:.1f} dB, sung {sung:.1f} dB")
+    print(f"  singing runs {start:.2f} s to {end:.2f} s")
+    assert start is not None and end is not None, "no singing found in the voice band"
+    assert sung - floor > 10.0, (
+        f"voice band only rises {sung - floor:.1f} dB; the phase cannot be trusted"
     )
 
-    stanzas = int(np.floor((dur - lead) / p + 0.5))
-    end = lead + stanzas * p
+    at, profile, trough = phase(env, vfps, p, start, end)
     print(
-        f"\n{stanzas} stanzas, {lead:.2f} s to {end:.2f} s (recording ends {dur:.2f} s)"
+        f"  folded at {p:.2f} s, the stanza gap is at phase {trough / len(profile) * p:.2f} s"
+    )
+    print(f"  the envelope climbs back through its mean at phase {at:.2f} s")
+
+    # The first boundary at or after the onset. Anything earlier is inside the
+    # instrumental opening, which is what the chroma phase used to pick.
+    lead = at + p * float(np.ceil((start - at) / p))
+    assert start <= lead < start + p, f"lead {lead:.2f} is not the first boundary sung"
+
+    stanzas = int(np.ceil((end - lead) / p))
+    print(
+        f"\n{stanzas} stanzas from {lead:.2f} s, the last one a {end - lead - (stanzas - 1) * p:.1f} s coda"
     )
     for k in range(stanzas):
         print(f"  {k + 1:2d}  {lead + k * p:7.2f} s")
-    assert end - dur < OVERRUN_S, (
-        f"last stanza runs {end - dur:.1f} s past the recording"
-    )
+    print(f"  singing stops {end:.2f} s, recording ends {dur:.2f} s")
 
     print("\n--- src/components/arati-lyrics.ts ---")
     print(f"const LEAD_S = {lead:.2f};")

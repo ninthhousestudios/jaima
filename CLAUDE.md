@@ -446,12 +446,25 @@ hand-tuning them.**
 Two numbers are the whole cue sheet because the bhajan is strictly strophic,
 and the tool demonstrates that rather than assuming it: the chroma
 self-similarity has one peak, at 36.46 s, with its 2x and 3x harmonics and
-nothing else near; a checkerboard novelty curve picks the phase that puts every
-boundary on a change; ten cycles then fill the recording, and the text parses to
-exactly ten stanzas. Inside a stanza the lines are spread evenly — exact at
-every stanza boundary, a second or so out in between. Better than that needs an
-ear, and it needs `LEAD_S` retuned first: a constant offset is what is noticed,
-a stanza's inner drift is not.
+nothing else near, and the same peak comes back when only the sung part is
+measured.
+
+**The phase is read off the voice band, and it has to be.** The arati opens
+with one full instrumental cycle of the same melody, so anything that reads
+harmony — a chroma novelty curve was the first attempt — cannot tell that cycle
+from a sung one and locks onto the arrangement instead of the words. It was
+wrong by 14.6 s, which showed in the browser as the highlight running a line
+ahead of the voice for the whole recording. A 500–4000 Hz envelope has no such
+problem: 27 dB through the intro, 54 dB once the singing starts. Fold it at the
+period over the sung part and you get one stanza's shape averaged over all of
+them — three troughs, one breath per line, the deepest being the gap between
+stanzas — and the stanza begins where it climbs back through its mean.
+
+Inside a stanza the lines are spread evenly: exact at every stanza boundary, a
+second or so out in between. The one place that shows is the closing `jai`,
+because the last stanza is a 13 s coda given a full stanza's slot. Better than
+this needs an ear, and it needs `LEAD_S` checked first — a constant offset is
+what gets noticed, a stanza's inner drift is not.
 
 ### The wave
 

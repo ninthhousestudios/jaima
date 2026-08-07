@@ -35,14 +35,27 @@ import type { AratiPlayer } from './arati-player';
  * strictly strophic: ten stanzas to one melody at one tempo, so where the
  * first one starts and how long one lasts is the entire cue sheet.
  *
+ * `LEAD_S` is the one that has to be right, and it is not the start of the
+ * recording's music. The arati opens with one full instrumental cycle of the
+ * same melody, so the singing begins a whole stanza in — get that wrong and
+ * the column runs a line or more ahead of the voice the whole way through,
+ * which is precisely what a first cut of this did. The tool reads the phase
+ * off the voice band for that reason; nothing that reads harmony can tell the
+ * instrumental cycle from a sung one.
+ *
  * Inside a stanza the lines are spread evenly, which is exact at every stanza
  * boundary and can be a second or so out in between. That is the known limit
  * of two numbers, and it is deliberate: a per-line cue sheet is 29 numbers
  * that no tool can check and every re-upload of the recording invalidates.
+ * The one place it shows is the closing `jai`, since the last stanza is a 13 s
+ * coda given a full stanza's slot.
  */
 
-/** Measured by tools/arati-timing.py. Seconds before the first stanza. */
-const LEAD_S = 22.05;
+/**
+ * Measured by tools/arati-timing.py. Seconds of instrumental opening before
+ * the first sung stanza — very nearly one whole stanza of it.
+ */
+const LEAD_S = 36.72;
 
 /** Measured by tools/arati-timing.py. Seconds of one stanza. */
 const STANZA_S = 36.46;
