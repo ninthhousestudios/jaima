@@ -1,15 +1,16 @@
 import { GRIP, type AratiLamp } from './arati-lamp';
+import { initAratiLyrics } from './arati-lyrics';
+import { createAratiPlayer } from './arati-player';
 
 /**
  * Ārati.
  *
  * A recording of the ārati plays in the corner, and either of the two lamps
  * standing on the shelves can be picked up and waved before her for as long as
- * the visitor wants. Those are the only two things in the mode, and they are
- * deliberately not wired to each other: nothing waits for the video, nothing
- * counts bars, the wave does not start or stop with playback. The rite is the
- * visitor's to perform; the recording is what the room sounds like while they
- * perform it.
+ * the visitor wants. Those two are deliberately not wired to each other:
+ * nothing waits for the video, nothing counts bars, the wave does not start or
+ * stop with playback. The rite is the visitor's to perform; the recording is
+ * what the room sounds like while they perform it.
  *
  * The lamps waved are the ones already on the wall, not a third lamp the mode
  * conjures. Taking the lamp down off its shelf is half of what makes it read
@@ -18,10 +19,13 @@ import { GRIP, type AratiLamp } from './arati-lamp';
  *
  * The whole wave is `setLift` + `setTilt` + `setDrag` from arati-lamp.ts and
  * nothing else. No canvas, no physics engine, no reparenting.
+ *
+ * The words are the third thing here, hidden behind a button, and they are the
+ * one part that *is* wired to the recording — arati-lyrics.ts, over the
+ * channel arati-player.ts opens. That does not contradict the paragraph above.
+ * The wave is the visitor's own offering and has no right answer; the words
+ * are what is being sung this second, and there is exactly one of those.
  */
-
-/** docs/arati-youtube.md. Cheap to change, so it is one constant. */
-const VIDEO_ID = 'tqMBR5lLUHI';
 
 /**
  * How much of the gap to the hand the lamp closes each frame.
@@ -88,8 +92,8 @@ let mode: AratiMode | null = null;
  *
  * The lamps themselves are live in every mode, like the bell — where a mode
  * owns their patch of screen (the garland canvas, the overlays) it already
- * sits above the shelves, so nothing needs gating here. Only the recording
- * belongs to the mode.
+ * sits above the shelves, so nothing needs gating here. Only the recording,
+ * and the words that follow it, belong to the mode.
  */
 export function setAratiActive(active: boolean) {
   if (!mode) return;
@@ -113,50 +117,17 @@ export function initAratiMode(room: HTMLElement, altar: HTMLElement, lamps: read
   `;
   room.appendChild(panel);
 
-  const player = panel.querySelector<HTMLElement>('.arati-player')!;
-  let frame: HTMLIFrameElement | null = null;
-
   /**
-   * The player is built on first entry, never at init.
+   * The recording, and the words that follow it.
    *
-   * Same rule the sound beds follow: a visitor who never opens ārati mode
-   * never talks to YouTube at all, and the room's first paint is not waiting
-   * on a third-party frame. `enablejsapi` is what makes `pause()` below work.
+   * The player is built on first entry, never at init — the same rule the
+   * sound beds follow: a visitor who never opens ārati mode never talks to
+   * YouTube at all, and the room's first paint is not waiting on a third-party
+   * frame. The lyrics panel is built now but stays hidden until asked for; it
+   * is three files of text and no network at all.
    */
-  function mount() {
-    if (frame) return;
-    frame = document.createElement('iframe');
-    frame.title = 'Ārati';
-    frame.allow = 'accelerometer; encrypted-media; gyroscope; picture-in-picture';
-    frame.setAttribute('allowfullscreen', '');
-    // youtube-nocookie: no tracking cookie until the visitor presses play.
-    // No autoplay parameter anywhere — the visitor starts the ārati.
-    frame.src =
-      `https://www.youtube-nocookie.com/embed/${VIDEO_ID}` +
-      `?enablejsapi=1&rel=0&modestbranding=1&playsinline=1` +
-      `&origin=${encodeURIComponent(window.location.origin)}`;
-    player.appendChild(frame);
-  }
-
-  /**
-   * Stop the recording when the visitor leaves the mode.
-   *
-   * The overlay goes `display: none` around the iframe, and a hidden YouTube
-   * frame keeps playing — the audio would follow you into japa with nothing on
-   * screen to explain it or turn it off. So the frame is left mounted, keeping
-   * its position for when you come back, and told to pause over the postMessage
-   * channel `enablejsapi=1` opens.
-   *
-   * This is the one place where sound mode's rule is deliberately inverted.
-   * The beds are ambience and outlive their panel on purpose; the ārati is a
-   * rite with a beginning and an end, and it belongs to its own mode.
-   */
-  function pause() {
-    frame?.contentWindow?.postMessage(
-      JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
-      'https://www.youtube-nocookie.com',
-    );
-  }
+  const player = createAratiPlayer(panel.querySelector<HTMLElement>('.arati-player')!);
+  const lyrics = initAratiLyrics(panel, player);
 
   const waves: Wave[] = lamps.map(lamp => ({
     lamp,
@@ -280,10 +251,26 @@ export function initAratiMode(room: HTMLElement, altar: HTMLElement, lamps: read
 
   mode = {
     activate() {
-      mount();
+      player.mount();
+      // Nothing in the lyric column could be measured until now: the overlay
+      // was display:none, so every height read 0.
+      lyrics.activate();
     },
+    /**
+     * Stop the recording when the visitor leaves the mode.
+     *
+     * The overlay goes `display: none` around the iframe, and a hidden YouTube
+     * frame keeps playing — the audio would follow you into japa with nothing
+     * on screen to explain it or turn it off. So the frame is left mounted,
+     * keeping its position for when you come back, and told to pause over the
+     * postMessage channel `enablejsapi=1` opens.
+     *
+     * This is the one place where sound mode's rule is deliberately inverted.
+     * The beds are ambience and outlive their panel on purpose; the ārati is a
+     * rite with a beginning and an end, and it belongs to its own mode.
+     */
     deactivate() {
-      pause();
+      player.pause();
     },
   };
 }

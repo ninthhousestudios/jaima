@@ -17,7 +17,9 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
 - `src/components/` — vanilla TS modules, each owning one concern:
   - `altar.ts` — the shrine the photo sits in: frame, mat, ledge, lamps, shelves, offerings
   - `arati-lamp.ts` — the pancharati hand lamp; built to be picked up and waved
-  - `arati-mode.ts` — the arati recording, and the hand that waves either lamp
+  - `arati-mode.ts` — the arati: the hand that waves either lamp, and the wiring
+  - `arati-player.ts` — the embedded recording, and the channel to it
+  - `arati-lyrics.ts` — the words, climbing in step with that recording
   - `puja-bell.ts` — the Nandi bell on the ledge; swing it, or leave it ringing
   - `audio.ts` — the one AudioContext, codec choice and buffer cache
   - `bell-voice.ts` — the ghanta's strike, synthesised from measured modes
@@ -41,6 +43,7 @@ Single-page app, two states: **threshold** (entry animation) → **room** (main 
   hence the underscore)
 - `tools/render-tanpura.py`, `tools/render-ocean.py` — build the sound beds
 - `tools/bell-modes.py` — measures the ghanta recording's modes for `bell-voice.ts`
+- `tools/arati-timing.py` — measures the arati's stanza clock for `arati-lyrics.ts`
 - `tools/build-japa.py` — normalises `docs/japa/` into the japa mode's texts
 
 The lotus nav's centre is that cut-out, not a drawn shape, so it is styled
@@ -358,10 +361,15 @@ is the exception and it went the other way — an embedded player, below.
 ## Arati
 
 The arati plays in the upper left corner and either lamp can be taken off its
-shelf and waved for as long as you like. The two are deliberately **not wired
+shelf and waved for as long as you like. Those two are deliberately **not wired
 to each other**: nothing waits for the video, nothing counts bars, the wave
 neither starts nor stops with playback. The rite is the visitor's to perform;
 the recording is what the room sounds like while they perform it.
+
+The words are the third thing here, and they are the one part that *is* wired to
+the recording. That is not a contradiction: the wave is the visitor's offering
+and has no right answer, whereas the words are what is being sung this second
+and there is exactly one of those.
 
 The lamps waved are the two already on the wall, not a third the mode conjures.
 The shelf standing visibly empty while you hold one is half of what makes it
@@ -369,10 +377,10 @@ read as arati rather than as a widget.
 
 ### The player
 
-An `<iframe>`, no YouTube API script, built on first entry and never at init —
-a visitor who does not open arati mode never talks to YouTube at all.
-`youtube-nocookie.com`, no autoplay parameter anywhere, and the video id is one
-constant at the top of `arati-mode.ts` (`docs/arati-youtube.md` is the source).
+`arati-player.ts`. An `<iframe>`, no YouTube API script, built on first entry
+and never at init — a visitor who does not open arati mode never talks to
+YouTube at all. `youtube-nocookie.com`, no autoplay parameter anywhere, and the
+video id is one constant at its top (`docs/arati-youtube.md` is the source).
 
 **Leaving the mode pauses it, and this is the one place sound mode's rule is
 deliberately inverted.** The beds outlive their panel because ambience should;
@@ -384,9 +392,66 @@ when you come back, and is told to pause over the postMessage channel that
 `enablejsapi=1` opens. Verified against the real player: it pauses, stays
 paused, and returns holding its position rather than restarting.
 
+**Both directions of that channel are used**, and the inbound one is what the
+lyrics run on. Send `{event: 'listening'}` and the player answers with
+`initialDelivery`, `onReady` and then a stream of `infoDelivery` carrying
+`currentTime` and `playerState` — the same handshake `youtube.com/iframe_api`
+performs internally, done here so every byte of arati mode stays on
+youtube-nocookie.com. Two things about it are easy to get wrong and silent when
+you do:
+
+- The player opens with `readyToListen`, which is **not** an answer — it carries
+  no state and means "ask me now". Treating it as one stops the handshake a
+  message short of every report you wanted.
+- Nothing here throws, logs or shows a failure. If the player stops answering,
+  `time()` falls back to a clock started when we asked it to play and the panel
+  scrolls on regardless; the only symptom is drift.
+
 The player's width has a floor (`clamp(360px, ...)`) rather than being pure vw
 because YouTube's terms put a floor of 200 x 200 px on an embedded player, and
 360 px at 16:9 is 202 px tall whatever the window does.
+
+### The words
+
+`arati-lyrics.ts`, and **hidden until the Lyrics button is pressed** — the rite
+is the lamp and the bell, and the text is for whoever wants to sing along. The
+whole bhajan is on screen at once and climbing, like japa's crawl and the
+teachings' stream, not one line at a time: a line you are about to sing is more
+use than one you have finished. Sources are `docs/arati-{deva,iast,mal}.md`,
+imported `?raw` at build time exactly as the teachings are, and offered in japa's
+three scripts under japa's own labels.
+
+The column runs off `player.time()` every frame rather than a clock of its own,
+so pausing pauses it, seeking moves it and it cannot drift. Play here is play
+there and play there lights the button here. Scrolling the column by hand
+detaches it — someone reading ahead should not be dragged back four times a
+second — and a Follow button appears to put it back; pressing play does the
+same. Nothing is lit while detached or before the singing starts, because a lit
+line is a claim about this second and in neither state is there one to make.
+
+The panel is top **right**, opposite the player, and that side is not a
+preference: a column under the player would run down the left edge, and the
+left shelf and its arati lamp are at `--shelf-y` (44vh from the bottom, lamp
+8vh above). A panel with `pointer-events` there would sit on the one thing the
+mode exists to let you pick up. `--lyrics-h` is capped for the same reason —
+raise `--shelf-y` and it has room to grow, lower it and this must shrink first.
+
+#### The two timing numbers
+
+`LEAD_S` and `STANZA_S`, measured by `tools/arati-timing.py` from
+`docs/arati-master.webm` (gitignored like the ocean masters — the recording is
+the Math's, only the numbers ship). **Read the tool's output rather than
+hand-tuning them.**
+
+Two numbers are the whole cue sheet because the bhajan is strictly strophic,
+and the tool demonstrates that rather than assuming it: the chroma
+self-similarity has one peak, at 36.46 s, with its 2x and 3x harmonics and
+nothing else near; a checkerboard novelty curve picks the phase that puts every
+boundary on a change; ten cycles then fill the recording, and the text parses to
+exactly ten stanzas. Inside a stanza the lines are spread evenly — exact at
+every stanza boundary, a second or so out in between. Better than that needs an
+ear, and it needs `LEAD_S` retuned first: a constant offset is what is noticed,
+a stanza's inner drift is not.
 
 ### The wave
 

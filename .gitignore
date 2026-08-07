@@ -11,5 +11,8 @@ docs/*.flac
 .ruff_cache/
 __pycache__/
 docs/*.mp3
+# The arati recording, pulled off YouTube for tools/arati-timing.py. It is the
+# Math's, so it never ships — only the two numbers the tool measures from it.
+docs/*.webm
 # src-tauri/ is source (the desktop shell), not a build artifact — its own
 # .gitignore covers target/ and the generated schemas.

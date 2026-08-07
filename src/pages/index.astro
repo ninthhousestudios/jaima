@@ -1339,7 +1339,8 @@ import Base from '../layouts/Base.astro';
 
   .japa-script,
   .japa-view,
-  .teachings-view {
+  .teachings-view,
+  .arati-script {
     background: hsla(30, 20%, 30%, 0.5);
     border: 1px solid hsla(30, 40%, 50%, 0.3);
     color: #d4b89a;
@@ -1352,7 +1353,8 @@ import Base from '../layouts/Base.astro';
 
   .japa-script.active,
   .japa-view.active,
-  .teachings-view.active {
+  .teachings-view.active,
+  .arati-script.active {
     background: hsla(30, 40%, 40%, 0.7);
     border-color: hsla(30, 50%, 60%, 0.5);
     color: #f0d8b8;
@@ -1718,5 +1720,156 @@ import Base from '../layouts/Base.astro';
     font-size: 0.8rem;
     line-height: 1.5;
     text-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.8);
+  }
+
+  /* The words, below the hints. Quiet and closed: the rite is the lamp and the
+     bell, and the text is there for whoever wants to sing along. */
+  .arati-lyrics-toggle {
+    pointer-events: auto;
+    background: hsla(30, 20%, 30%, 0.5);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #d4b89a;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: background 0.3s ease;
+  }
+
+  .arati-lyrics-toggle:hover {
+    background: hsla(30, 30%, 38%, 0.6);
+  }
+
+  .arati-lyrics-toggle.active {
+    background: hsla(30, 40%, 40%, 0.7);
+    border-color: hsla(30, 50%, 60%, 0.5);
+    color: #f0d8b8;
+  }
+
+  /* The lyric column, opposite the player.
+
+     It is its own fixed block rather than another row of the overlay's column
+     because it cannot go under the player: it would have to run down the left
+     edge, and the left shelf and its ārati lamp are at --shelf-y (44vh from
+     the bottom) with the lamp 8vh above that. A panel with pointer-events
+     would sit on top of the one thing this mode exists to let you pick up.
+
+     Hence --lyrics-h, and hence the ceiling on it: 1.5rem of inset plus 44vh
+     of column has to stop clear of 48vh from the top. Raise --shelf-y and this
+     has room to grow; lower it and this must shrink first. */
+  .arati-lyrics {
+    --lyrics-h: 44vh;
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: clamp(300px, 24vw, 400px);
+    height: var(--lyrics-h);
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    pointer-events: auto;
+  }
+
+  /* An author `display` beats the UA sheet's rule for [hidden], so the panel
+     would stay on screen closed without this. */
+  .arati-lyrics[hidden] {
+    display: none;
+  }
+
+  .arati-lyrics-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .arati-scripts {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .arati-lyrics-play {
+    background: hsla(30, 20%, 30%, 0.5);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #d4b89a;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: background 0.3s ease;
+  }
+
+  .arati-lyrics-play:hover {
+    background: hsla(30, 30%, 38%, 0.6);
+  }
+
+  /* Dissolved at both ends rather than clipped, so the column reads as text
+     passing through a window and not as a box with a scrollbar. */
+  .arati-lyrics-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    /* Drag scrolls it, so a drag must not start a text selection instead. */
+    user-select: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18% 78%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 18% 78%, transparent);
+  }
+
+  .arati-lyrics-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
+  .arati-lyrics-line {
+    margin: 0;
+    text-align: right;
+    font-size: clamp(0.8rem, 1.5vw, 1.05rem);
+    line-height: 1.55;
+    color: hsla(35, 35%, 72%, 0.55);
+    text-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.8);
+    transition:
+      color 0.5s ease,
+      text-shadow 0.5s ease;
+  }
+
+  /* Padding, not a margin: the stanza gap has to be part of the last line's
+     own box or it collapses out of the track and the measured tops drift. */
+  .arati-lyrics-line.stanza-end {
+    padding-bottom: 0.9em;
+  }
+
+  /* The line being sung. Lit, never boxed — a background would make the column
+     a list of rows, and it is a page of a book. */
+  .arati-lyrics-line.current {
+    color: #f0d8b8;
+    text-shadow: 0 0 24px hsla(30, 60%, 50%, 0.4);
+  }
+
+  /* Only offered once the column has been scrolled off the recording — until
+     then it is a button that does nothing, and says so by not being there. */
+  .arati-lyrics-follow {
+    display: none;
+    align-self: flex-end;
+    background: hsla(30, 20%, 30%, 0.5);
+    border: 1px solid hsla(30, 40%, 50%, 0.3);
+    color: #d4b89a;
+    padding: 0.35rem 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: inherit;
+  }
+
+  .arati-lyrics.detached .arati-lyrics-follow {
+    display: block;
+  }
+
+  .arati-lyrics-follow:hover {
+    background: hsla(30, 30%, 38%, 0.6);
   }
 </style>
