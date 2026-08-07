@@ -8,9 +8,11 @@ A digital temple to Amma. Click the lotus for various options. You can change th
 put on a garland, do arati, with or without the lyrics. Wave the arati lamps at any
 time, ring the puja bell at any time. You can also put Amma's quotes on the screen and
 scroll through them as you would like. There are two Sound options, a tanpura and the
-ocean, which you can choose to play separately or together. Then in the Japa section you
-can do archana, in the three scripts, including Amma's 108 names, the 108, 300 and 1000
-names of Lalita Devi as well as the stotram version of the 1000 names.
+ocean, which you can choose to play separately or together. The Archana section includes
+Amma's 108 names, the 108, 300 and 1000 names of Lalita Devi as well as the stotram
+version of the 1000 names, in three scripts, with options for clicking through at your
+own pace one-by-one, or in a stream. The stream can also be set to go automatically and
+has a speed adjuster.
 
 ---
 

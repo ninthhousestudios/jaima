@@ -24,7 +24,7 @@ interface PetalDef {
 const PETALS: PetalDef[] = [
   { mode: 'photo', label: 'Photo' },
   { mode: 'garland', label: 'Garland' },
-  { mode: 'japa', label: 'Japa' },
+  { mode: 'japa', label: 'Archana' },
   { mode: 'teachings', label: 'Teachings' },
   { mode: 'sound', label: 'Sound' },
   { mode: 'arati', label: 'Āratī' },
