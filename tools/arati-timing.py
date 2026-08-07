@@ -9,6 +9,13 @@ where that stanza starts being sung. This script measures the whole table and
 prints it ready to paste. The recording itself never ships — it is the Math's —
 so this is how those numbers can be checked.
 
+**This measures the bhajan only, through `jai bolo`.** The pavamāna chants that
+close the arati — `asato mā`, `lokāḥ samastāḥ`, the `gurubhyoḥ` salutation, in
+docs/pavamana-*.md — are free rhythm, not the strophic bhajan, so there is no
+period or template for this machinery to lock onto; those cues are hand-timed
+by ear in `arati-lyrics.ts`. When pasting this script's table, keep the tail
+rows it does not produce.
+
 **It used to be two numbers, a lead-in and one stanza length, and that was
 wrong.** The bhajan is strophic in its melody but not in its tempo. It holds
 36.46 s a stanza for five stanzas, accelerates hard at `patitoddhara` to about

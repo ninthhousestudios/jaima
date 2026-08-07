@@ -1,6 +1,9 @@
 import deva from '../../docs/arati-deva.md?raw';
 import iast from '../../docs/arati-iast.md?raw';
 import mal from '../../docs/arati-mal.md?raw';
+import pavaDeva from '../../docs/pavamana-deva.md?raw';
+import pavaIast from '../../docs/pavamana-iast.md?raw';
+import pavaMal from '../../docs/pavamana-mal.md?raw';
 import type { AratiPlayer } from './arati-player';
 
 /**
@@ -57,26 +60,35 @@ import type { AratiPlayer } from './arati-player';
  */
 
 /**
- * Where each stanza starts being sung, in seconds. Measured by
- * tools/arati-timing.py — read its table rather than editing a row by feel.
+ * Where each stanza starts being sung, in seconds.
  *
  * **One entry per stanza of the sources, in their order.** The three scripts
  * hold the same stanzas, so one table serves all of them; if the sources gain
- * or lose a stanza this must gain or lose a row, and the tool asserts the
- * count for exactly that reason.
+ * or lose a stanza this must gain or lose a row.
  *
- * Confidence is not even down the table, and the tool says so per row. The
- * first five are the recording's own period, to the centisecond. The three
- * fast ones come from a fit that agrees with the voice to a quarter second.
- * The reprise and the two closing sections are single estimates, and each is
- * taken from the voice rather than from the music — see below.
+ * The table is in two halves. The bhajan itself — the first nine rows, through
+ * the `oṃ jaya jaya` reprise — is measured by tools/arati-timing.py off
+ * arati-{deva,iast,mal}.md; read its table rather than editing a row by feel.
+ * Confidence there is not even, and the tool says so per row: the first five
+ * are the recording's own period to the centisecond, the three fast ones a fit
+ * agreeing with the voice to a quarter second, the reprise a single estimate.
  *
- * **A cue is where the singing starts, not where the melody does.** Twice on
- * this recording those are far apart, because the band plays the turn before
- * the voices come in: once at the top, which is the whole reason the opening
- * cue is not at 0, and again at the reprise, where the melody returns at
- * 278.0 and nobody sings until 286.0. Eight seconds is most of a line. Any
- * measurement that reads harmony will find the first of those and be early.
+ * The last four rows are the closing chants — `jai bolo` and the pavamāna
+ * mantra (`asato mā`, `lokāḥ samastāḥ`, the `gurubhyoḥ` salutation), whose
+ * words live in pavamana-{deva,iast,mal}.md. These are **hand-timed by ear**,
+ * not measured: they are free rhythm, not the strophic bhajan, so the tool's
+ * period-and-template machinery has nothing to lock onto. Adjust them by
+ * listening, not by re-running the tool — which sees only the bhajan sources
+ * and stops at `jai bolo`. Within a stanza the lines still spread evenly across
+ * its span, so a repeated line (the three `lokāḥ`, or a `mātā` sung thrice)
+ * simply holds its row lit until the next cue.
+ *
+ * **A cue is where the singing starts, not where the melody does.** In the
+ * bhajan those are twice far apart, because the band plays the turn before the
+ * voices come in: at the top, which is the whole reason the opening cue is not
+ * at 0, and at the reprise, where the melody returns near 278 and nobody sings
+ * until ~277–286. Any measurement that reads harmony finds the melody and is
+ * early; the hand-timed tail is read straight off the voice for the same reason.
  */
 const CUES = [
   36.72, // oṃ jaya jaya — the singing, one instrumental cycle in
@@ -86,10 +98,12 @@ const CUES = [
   182.55,
   218.5, // patitoddhāra — and from here a stanza is half as long
   236.11,
-  253.73, // this one eases back out of the accelerando, so it runs long
-  286.0, // oṃ jaya jaya again — 8 s after the melody returns, not with it
-  324.61, // jai bolo
-  339.27, // asato mā sadgamaya, a different chant to close on
+  252.7, // sura jana — eases back out of the accelerando, so it runs long
+  277.0, // oṃ jaya jaya again — the voices return with the melody, ~4:37
+  323.0, // jai bolo (5:23); its second line, "jai", falls at ~5:29
+  335.0, // oṃ asato mā — the pavamāna mantra begins (5:35)
+  351.0, // oṃ lokāḥ samastāḥ, sung three times (5:51); oṃ śāntiḥ at ~6:07
+  373.0, // oṃ śrī gurubhyoḥ namaḥ — the closing salutation (6:13)
 ];
 
 /**
@@ -162,9 +176,9 @@ function parse(source: string): string[][] {
 }
 
 const TEXTS: Record<Script, readonly (readonly string[])[]> = {
-  devanagari: parse(deva),
-  iast: parse(iast),
-  malayalam: parse(mal),
+  devanagari: [...parse(deva), ...parse(pavaDeva)],
+  iast: [...parse(iast), ...parse(pavaIast)],
+  malayalam: [...parse(mal), ...parse(pavaMal)],
 };
 
 interface Lyrics {
