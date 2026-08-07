@@ -520,14 +520,31 @@ alone:
   a judgement call.
 - **The reprise** is the opening's own chroma slid along the rest of the
   recording over a range of tempi. It peaks a second time at 278.0 s.
-- **The fast run** is placed by spacing those stanzas evenly and sliding the
-  group, and then checked against something that was told nothing about it:
-  self-similarity *inside that stretch alone*. The fit says 17.58 s and the
-  stretch says 17.65 s.
+- **The fast run** is placed by sliding a group of evenly spaced stanzas —
+  searching **both** where they start and how long they are. Deriving the
+  length from the span instead (`(b - start) / k`) forces the run to *end* at
+  the reprise, and a run of stanzas does not end where the next thing begins;
+  there is an interlude. Forcing it pushed the start 7 s late to make the
+  arithmetic work, so `patitoddhāra` was highlighted most of a stanza after it
+  was sung. The fit is then checked against something told nothing about it:
+  self-similarity *inside that stretch alone*, 17.6 s either way.
 - **`jai bolo` and the mantra** match no template, being different music, so
-  they are found as the sharpest chroma changes after the reprise and snapped
-  onto the nearest voice onset. Both are found twice over that way, and that
-  agreement is the only reason they are trusted.
+  they are found as the sharpest chroma changes after the reprise. Both are
+  then confirmed by the voice, which is the only reason they are trusted.
+
+**A cue is where the singing starts, not where the melody does**, and the tool
+prints both so they can be compared. Twice here they are far apart, because the
+band plays the turn before the voices come in: at the top, which is why the
+first cue is 36.72 and not 0, and again at the reprise, where the melody
+returns at 278.0 and nobody sings until 286.0.
+
+Which of the two wins depends on where the anchor came from, and the tool says
+so per row. A head or fast-run anchor is a **periodic** estimate — one phase
+averaged over a whole run — so it beats any single breath, and the voice onsets
+wander a few tenths either side of it; those are kept, and their agreement with
+the voice (within 0.25 s, every row) is the evidence that the run is right. The
+reprise and the two closing sections have no run to average over, being one
+template match or one novelty peak each, so there the voice wins.
 
 **The phase is read off the voice band, and it has to be.** The arati opens
 with one full instrumental cycle of the same melody, so anything that reads

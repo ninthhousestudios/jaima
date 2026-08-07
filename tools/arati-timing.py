@@ -344,31 +344,44 @@ def find_reprise(feat, fps, opening, after, until):
     return best
 
 
-def fit_run(feat, fps, a, b, k, slack=16.0):
+def fit_run(feat, fps, a, b, k, p, slack=16.0):
     """
-    Place `k` stanzas of equal length ending at `b`, sliding where they start.
+    Place `k` equal stanzas between `a` and `b`: where they start, and how long.
 
-    One free parameter, not `k`: the stanzas are spaced evenly and the whole
-    run slides, so what is being asked is 'where does the fast section come in'
-    and not 'where is each of its boundaries'. The score is how alike the k
-    segments are, which is the same question the tracker asks, put to a group.
+    **Two free parameters, and the second one is not optional.** Deriving the
+    length from the span — `(b - start) / k` — forces the run to reach `b`
+    exactly, and a run of stanzas does not end where the next thing begins:
+    there is an interlude in front of the reprise, as there is in front of most
+    stanzas here. Forcing it cost 7 s, and it cost it in the worst possible
+    way, by pushing the *start* late to make the arithmetic work. The verse
+    was then highlighted most of a stanza after it was sung, which is what a
+    listener notices first.
+
+    The run is only required to reach within half a stanza of `b`, which is
+    what says 'these are the stanzas before the reprise' without saying where
+    the singing stops. The score is how alike the k segments are — the same
+    question the tracker asks, put to a group.
     """
-    best = (-9.0, None)
-    for start in np.arange(a, a + slack, 0.25):
-        d = (b - start) / k
-        if d < 6.0:
-            continue
-        segs = [stanza(feat, fps, start + i * d, start + (i + 1) * d) for i in range(k)]
-        if any(s is None for s in segs):
-            continue
-        pairs = [
-            float((segs[i] * segs[j]).sum()) for i in range(k) for j in range(i + 1, k)
-        ]
-        v = float(np.mean(pairs))
-        if v > best[0]:
-            best = (v, start)
-    v, start = best
-    d = (b - start) / k
+    best = (-9.0, None, None)
+    for start in np.arange(a - 4.0, a + slack, 0.25):
+        for d in np.arange(0.25 * p, 0.85 * p, 0.1):
+            end = start + k * d
+            if end > b + 1.0 or end < b - 0.5 * p:
+                continue
+            segs = [
+                stanza(feat, fps, start + i * d, start + (i + 1) * d) for i in range(k)
+            ]
+            if any(s is None for s in segs):
+                continue
+            pairs = [
+                float((segs[i] * segs[j]).sum())
+                for i in range(k)
+                for j in range(i + 1, k)
+            ]
+            v = float(np.mean(pairs))
+            if v > best[0]:
+                best = (v, start, d)
+    v, start, d = best
     return [start + i * d for i in range(k)], d, v
 
 
@@ -397,13 +410,29 @@ def sections(nov, fps, lo, hi, count, apart=10.0):
     return sorted(t / fps for t in picked), [nov[i] for i in sorted(picked)]
 
 
-def snap(t, ons, window=4.0):
-    """Move a boundary onto the nearest voice onset, if one is close enough."""
-    near = [(abs(o - t), o, gap) for o, gap in ons if abs(o - t) <= window]
-    if not near:
-        return t, None
-    _, o, gap = min(near)
-    return o, gap
+def snap(t, ons, sung_start, back=4.0, ahead=8.0, breath=2.0):
+    """
+    Move a boundary onto the voice that opens the stanza there.
+
+    **Every cue goes through this, and the reprise is why.** Everything above
+    is measured off harmony, and harmony cannot tell an instrumental statement
+    of the melody from a sung one — the same fact that makes the phase of the
+    whole recording unreadable from chroma. The reprise's template match is at
+    278.0 s and its singing does not begin until 282.2, because the band plays
+    the turn before the voices come back in. Four seconds is most of a line.
+
+    So the harmonic anchor says *which* stanza and roughly where; the voice
+    says exactly when. Taken forward from the anchor rather than nearest to
+    it — nearest would happily pick the last breath of the stanza before — and
+    only onsets that open after a real silence count, since a line's own breath
+    inside a stanza is shorter than the gap between stanzas.
+    """
+    for o, gap in ons:
+        if o < max(t - back, sung_start - 0.5) or o > t + ahead:
+            continue
+        if gap >= breath:
+            return o, gap
+    return t, None
 
 
 # ------------------------------------------------------------------ the words
@@ -519,7 +548,7 @@ def main():
 
     fast_n = reprise_at - len(head)
     assert fast_n >= 1, "the reprise arrives before the tracker lost the clock"
-    fast, fast_len, fast_v = fit_run(feat, fps, head[-1] + p, rep_t, fast_n)
+    fast, fast_len, fast_v = fit_run(feat, fps, head[-1] + p, rep_t, fast_n, p)
     print(
         f"{fast_n} stanzas of {fast_len:.2f} s from {fast[0]:.2f} s (alike {fast_v:.3f})"
     )
@@ -533,19 +562,38 @@ def main():
 
     nov = novelty(chroma, fps)
     cuts, strength = sections(nov, fps, rep_t + rep_len - 8.0, end - 8.0, tail)
-    closing = []
     for t, s in zip(cuts, strength):
-        snapped, gap = snap(t, ons)
-        closing.append(snapped)
+        print(f"  closing section at {t:.2f} s (novelty {s:.4f})")
+
+    anchors = head + fast + [rep_t] + list(cuts)
+    assert len(anchors) == len(stanzas), (
+        f"measured {len(anchors)} stanza starts for {len(stanzas)} stanzas of words"
+    )
+
+    # Harmony says which stanza and roughly where; the voice says when. Every
+    # anchor is measured against the voice, because that agreement is the
+    # evidence — but only the ones that need it are moved.
+    #
+    # A head or fast-run anchor is a *periodic* estimate: one phase averaged
+    # over every stanza in its run, so it is better than any single breath, and
+    # the onsets wander a few tenths either side of it. Snapping those would
+    # trade an exact number for a noisy one. The reprise and the closing
+    # sections have no run to average over — each is one template match or one
+    # novelty peak — and they are the ones the voice corrects, the reprise by a
+    # full 8 s, because the band plays the turn before the singers come back.
+    print("\n  the voice, against the harmony's anchor:")
+    cues = []
+    periodic = len(head) + len(fast)
+    for i, a in enumerate(anchors):
+        t, gap = snap(a, ons, start)
+        keep = i < periodic
+        cues.append(a if keep else t)
         print(
-            f"  closing section at {snapped:.2f} s (novelty {s:.4f} at {t:.2f} s, "
-            + (f"onset after {gap:.2f} s of silence)" if gap else "no onset near)")
+            f" {i + 1:2d}  {a:7.2f}  voice {t:7.2f}  {t - a:+5.2f} s   "
+            f"{('kept, periodic' if keep else 'voice taken'):15s}"
+            + (f"after {gap:.2f} s of silence" if gap else "no breath near it")
         )
 
-    cues = head + fast + [rep_t] + closing
-    assert len(cues) == len(stanzas), (
-        f"measured {len(cues)} stanza starts for {len(stanzas)} stanzas of words"
-    )
     assert all(b > a for a, b in zip(cues, cues[1:])), "the cue sheet is not in order"
 
     print("\n  #  start      span   sung   of span   first line")

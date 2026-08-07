@@ -67,21 +67,27 @@ import type { AratiPlayer } from './arati-player';
  *
  * Confidence is not even down the table, and the tool says so per row. The
  * first five are the recording's own period, to the centisecond. The three
- * fast ones and the reprise come from a fit that three independent
- * measurements agree on. `jai bolo` and the closing mantra are section
- * boundaries, found twice over — by structural novelty and by the silence in
- * front of them.
+ * fast ones come from a fit that agrees with the voice to a quarter second.
+ * The reprise and the two closing sections are single estimates, and each is
+ * taken from the voice rather than from the music — see below.
+ *
+ * **A cue is where the singing starts, not where the melody does.** Twice on
+ * this recording those are far apart, because the band plays the turn before
+ * the voices come in: once at the top, which is the whole reason the opening
+ * cue is not at 0, and again at the reprise, where the melody returns at
+ * 278.0 and nobody sings until 286.0. Eight seconds is most of a line. Any
+ * measurement that reads harmony will find the first of those and be early.
  */
 const CUES = [
   36.72, // oṃ jaya jaya — the singing, one instrumental cycle in
   73.18,
   109.63,
   146.09,
-  182.55, // this one carries the accelerando, so it runs long
-  225.25, // patitoddhāra — and from here a stanza is half as long
-  242.83,
-  260.42,
-  278.0, // oṃ jaya jaya again, back near the opening pace
+  182.55,
+  218.5, // patitoddhāra — and from here a stanza is half as long
+  236.11,
+  253.73, // this one eases back out of the accelerando, so it runs long
+  286.0, // oṃ jaya jaya again — 8 s after the melody returns, not with it
   324.61, // jai bolo
   339.27, // asato mā sadgamaya, a different chant to close on
 ];
