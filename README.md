@@ -27,7 +27,7 @@ opened from a lotus that blooms in the corner.
 | --- | --- |
 | *(none)* | The altar itself — the base state, and always the dominant one |
 | **photo** | Cycles her photographs through the frame with a slow crossfade |
-| **japa** | Five namavalis in three scripts, in a climbing crawl or one name at a time |
+| **archana** | Five namavalis in three scripts, in a climbing crawl or one name at a time |
 | **garland** | Take a garland from the panel, carry it across the altar, hang it on her frame |
 | **teachings** | Her words, one at a time or as a stream |
 | **sound** | Tanpura and ocean, mixable — a drone over the sea is what Amritapuri sounds like |
@@ -122,21 +122,6 @@ still resolves to `system-ui`. This is not a nicety. Left to the system,
 fontconfig here picked FreeSans, which carries the Devanagari glyphs without
 the lookups — it applies the reph and does nothing at all for the rakar, so
 `ब्र` came out as three glyphs. Noto has `rkrf` and `pref`.
-
-## Deploy
-
-GitHub Pages, from `.github/workflows/deploy.yml`. Pushing `master` builds and
-publishes `public/`; pull requests build without deploying.
-
-The custom domain is set in the repository's **Settings › Pages**, not in a
-file — with a custom Actions workflow GitHub ignores any `CNAME` in the tree.
-It has to be entered as its Punycode form, `xn--iwc0bc5dwd.com`, because the
-field will not take the Malayalam.
-
-`static/.nojekyll` is empty and deliberate. Astro emits the whole site as one
-chunk under `public/_astro/`, and Jekyll drops underscore-prefixed paths — so
-on the off chance it ever runs, the failure is a blank page rather than a
-missing stylesheet.
 
 ## On the contents
 
