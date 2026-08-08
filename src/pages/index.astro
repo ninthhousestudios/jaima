@@ -778,6 +778,10 @@ import Base from '../layouts/Base.astro';
        and takes the pointer inside its own mode, exactly as it covers the
        bell. */
     cursor: grab;
+    /* Without this a touch device claims the drag for scrolling the moment the
+       finger moves, so pointerdown lands but no pointermove ever arrives and
+       the lamp cannot be waved. Every drag surface on the altar needs it. */
+    touch-action: none;
     /* Waving is the one thing in the room done by dragging something that is
        not obviously draggable, so say so on hover. */
     transition: filter 0.4s ease;
@@ -1065,6 +1069,9 @@ import Base from '../layouts/Base.astro';
        overlays) sits above the offerings and gets it first. */
     pointer-events: auto;
     cursor: grab;
+    /* As with the arati lamps: without this a touch drag is stolen by the
+       browser for scrolling, so the bell can be tapped but never carried. */
+    touch-action: none;
   }
 
   .puja-bell.lifted {
@@ -1446,6 +1453,9 @@ import Base from '../layouts/Base.astro';
   .garland-canvas.grabbing {
     pointer-events: auto;
     cursor: grab;
+    /* Same touch fix as the lamps and bell: a garland is carried by dragging,
+       and a touch device would otherwise scroll the page instead. */
+    touch-action: none;
   }
 
   .garland-canvas.grabbing:active {
@@ -1832,6 +1842,9 @@ import Base from '../layouts/Base.astro';
     overflow: hidden;
     /* Drag scrolls it, so a drag must not start a text selection instead. */
     user-select: none;
+    /* The drag is a manual scroll (offset, not native), so a touch device must
+       not claim the gesture for panning — same fix as the lamps and bell. */
+    touch-action: none;
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18% 78%, transparent);
     mask-image: linear-gradient(to bottom, transparent, #000 18% 78%, transparent);
   }
