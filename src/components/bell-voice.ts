@@ -82,7 +82,7 @@ const TAIL = 4;
  * This is the absolute level, against the prime's own start, at which a mode
  * has stopped contributing.
  */
-const FLOOR = 0.004;
+const FLOOR = 0.01;
 
 /**
  * The saturation bus every strike passes through on its way out.
@@ -95,8 +95,16 @@ const FLOOR = 0.004;
  * and folds the dense roar smoothly under a ceiling instead. Not a
  * DynamicsCompressorNode, deliberately: that node applies an implicit makeup
  * gain derived from its knobs, which would quietly reboost everything.
+ *
+ * SAT is 1, so the ceiling is full scale. It was 1.5 — a ceiling of 0.67,
+ * bought by bending the curve so early that a LONE strike, which peaks around
+ * 0.6, was already being squashed by 2.2 dB and the ring by 6. A tanh has no
+ * knee: it curves from the origin, and the price of a low ceiling is paid on
+ * every quiet sound, not just the loud one. There is nothing to buy that
+ * headroom for — the fold is a net, and the level below it is what keeps the
+ * bell out of the net in the first place.
  */
-const SAT = 1.5;
+const SAT = 1.0;
 
 /**
  * How far past full scale the fold is drawn — and the whole reason it works.
@@ -163,7 +171,37 @@ let tick: AudioBuffer | null = null;
 interface Ring {
   out: GainNode;
   oscs: OscillatorNode[];
+  /** Its own gain, tracked because every later strike takes it down. */
+  level: number;
+  /** A hand is already closed round it, so a strike must not revive it. */
+  choked: boolean;
 }
+
+/**
+ * What a strike leaves of the tails already sounding — the clapper's other
+ * half, and the fix for the loud clang.
+ *
+ * A clapper does not only excite the bell, it LANDS on it: brass already in
+ * motion is damped by the thing that strikes it, which is why a hand bell
+ * rung fast sounds tight and renewed rather than building into a roar. The
+ * code had only the excitation, so at four strikes a second against a prime
+ * that rings for twelve, a dozen tails at the same seven frequencies summed
+ * on top of each other and their phases drifted in and out of alignment.
+ * Simulated over five seconds of auto-ring the peak wandered between 1.27 and
+ * 1.54 against a lone strike's 0.63 — up to 8 dB of unasked-for accent, on
+ * whichever strike happened to land in phase. That is the clang, and it was
+ * never one strike being loud; it was ten of them agreeing.
+ *
+ * At 0.75 the same run peaks at 0.80 and varies by a twentieth of a dB from
+ * strike to strike. Three or four tails are still plainly audible under the
+ * newest, which is the layering that makes it a bell and not a beep — what is
+ * gone is only the part that was summing into an accident.
+ */
+const DUCK = 0.75;
+
+/** How fast that duck arrives. Long enough not to click, short enough to be
+ * the clapper landing rather than a fade. */
+const DUCK_T = 0.008;
 
 const ringing = new Set<Ring>();
 
@@ -183,8 +221,14 @@ export function bellStats(): { rings: number; strikes: number } {
  * oscillators, and when the audio thread misses its deadline the whole
  * output stutters. Past the cap the OLDEST tail is faded out in 50 ms —
  * always under a brand-new strike at the same pitch, so its exit is masked.
+ *
+ * Eight rather than fourteen, since DUCK arrived: the eighth-oldest tail has
+ * been damped by seven later strikes and stands 20 dB under the newest, so
+ * the six this drops were inaudible and were being synthesised anyway. That
+ * is the one lever this file has on a weak device, where the symptom is not
+ * a stutter but the whole output stream going away for seconds at a time.
  */
-const MAX_RINGING = 14;
+const MAX_RINGING = 8;
 
 /**
  * Called from a pointerdown, like the beds' warm: the AudioContext must be
@@ -208,6 +252,13 @@ export function strikeBell(force: number): void {
   const ctx = audio();
   const t0 = ctx.currentTime;
   struck++;
+
+  // The clapper lands on a bell that is already sounding, and damps it.
+  for (const r of ringing) {
+    if (r.choked) continue;
+    r.level *= DUCK;
+    r.out.gain.setTargetAtTime(r.level, t0, DUCK_T);
+  }
 
   const out = ctx.createGain();
   out.gain.value = LEVEL * force;
@@ -256,7 +307,7 @@ export function strikeBell(force: number): void {
     src.start(t0);
   }
 
-  const ring: Ring = { out, oscs };
+  const ring: Ring = { out, oscs, level: LEVEL * force, choked: false };
   ringing.add(ring);
   if (last) {
     // The prime outlives everything else; its end is the strike's end —
@@ -289,6 +340,10 @@ export function strikeBell(force: number): void {
 export function chokeBell(): void {
   const now = audio().currentTime;
   for (const ring of ringing) {
+    // Marked, so a strike landing before the tail has drained does not duck
+    // it — which, being a multiply toward a level above zero, would raise it.
+    ring.choked = true;
+    ring.level = 0;
     ring.out.gain.setTargetAtTime(0, now, 0.06);
   }
 }

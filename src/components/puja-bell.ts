@@ -102,6 +102,22 @@ const STRIKE_MIN = 0.9;
 const STRIKE_GAP = 90;
 
 /**
+ * The speed at the turn that counts as a strike at full force.
+ *
+ * It has to span what the integrator can actually reach, which is MAX_OMEGA,
+ * and it did not: at 4 anything from a moderate rock upward pinned at 1. That
+ * mattered for one reason — the escapement settles at a fixed amplitude and
+ * turns over at 4.0, so the SELF-RING sat at maximum force and maximum
+ * brightness for as long as it was left going, four strikes a second, every
+ * one of them identical and as hard as the bell can be hit. A bell rocking in
+ * its own swing is not being hit as hard as an arm can hit it. At 6 it lands
+ * at two thirds — 3.5 dB down and a good deal darker, which is what a rocking
+ * bell sounds like — and a deliberate shake still has the whole range above it
+ * to reach for.
+ */
+const FULL_OMEGA = 6;
+
+/**
  * The integrator runs on a fixed step, not on the frame.
  *
  * Every constant above is per step, so if the frame drove it the bell would
@@ -211,7 +227,7 @@ export function buildPujaBell(parent: HTMLElement, altar: HTMLElement): PujaBell
     // The turn of the swing is where the clapper arrives.
     if (before * omega < 0) {
       if (peak > STRIKE_MIN && now - lastStrike > STRIKE_GAP) {
-        strikeBell(clamp(peak / 4, 0.18, 1));
+        strikeBell(clamp(peak / FULL_OMEGA, 0.18, 1));
         lastStrike = now;
       }
       peak = 0;

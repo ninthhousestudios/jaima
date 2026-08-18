@@ -669,16 +669,47 @@ makeup gain would reboost everything.
 
 **A WaveShaper's curve is indexed over [-1, 1] and nothing else**, so the
 bus is a pad of `1 / HEAD` into a curve stretched by `HEAD`, not a bare tanh.
-Drawn straight across [-1, 1] the curve *is* a hard clip above full scale —
-which is where the roar goes: at full-force auto-ring 4.4% of samples pass
-1.0, and flat-topping them measures 36.5 dB of error against the fold the
-bus is supposed to be. That was the audible edge on the ring. Raise `LEVEL`
-or `MAX_RINGING` and `HEAD` has to keep up.
+Drawn straight across [-1, 1] the curve *is* a hard clip above full scale, and
+that is where the auto-ring went. `SAT` is 1 for the other half of the same
+mistake: a tanh has no knee, it curves from the origin, so a ceiling of 0.67
+was being paid for by squashing a *lone* strike 2.2 dB and the ring 6. Raise
+`LEVEL` or `MAX_RINGING` and `HEAD` has to keep up.
+
+**But the fold is a net, and the fix for a loud ring is never in it.** Three
+things kept the bell out of it, in the order they matter:
+
+- `DUCK` — a clapper does not only excite the bell, it *lands* on it, so every
+  strike damps the tails already sounding to three quarters. Without it, four
+  strikes a second against a twelve-second prime summed a dozen tails at the
+  same seven frequencies, drifting in and out of phase; the peak wandered
+  between 1.27 and 1.54 against a lone strike's 0.63. That was the clang, and
+  it was never one strike being loud — it was ten of them agreeing.
+- `FULL_OMEGA` in `puja-bell.ts` — the escapement settles at *one* amplitude
+  and turns over at 4.0 forever, so a map that saturated at 4 pinned the
+  self-ring at maximum force and maximum brightness, every strike identical
+  and as hard as the bell can be hit. `MAX_OMEGA` is 9; the map spans it now,
+  the self-ring lands at two thirds, and a deliberate shake has room above it.
+- `MAX_RINGING` 8, not 14: with `DUCK` the eighth tail is 20 dB under the
+  newest, so the six that went were inaudible and were being synthesised.
+
+Together the auto-ring went from 1.09 into the bus, folded down by 4.5 dB with
+8% of what you heard being distortion products, to 0.54 and 1.3%.
 
 Modes are stopped at `TAIL` time-constants **or** when they fall under
 `FLOOR`, whichever comes first: five of the seven start 25–35 dB below the
 prime and were being held for seconds after they went inaudible, which is
 live oscillators and nothing else.
+
+`tools/bell-modes.py` renders the auto-ring into `docs/bell-preview.wav` **at
+the rate and force the escapement really produces**, through `LEVEL`, `DUCK`,
+the cap and the fold, and prints the peaks rather than normalising them. It
+did none of that — half the rate, random phases, peak-normalised — which is
+precisely how a bell that clanged in the browser auditioned clean here. An
+`OscillatorNode` always starts at phase zero and there is no way to ask it
+not to, so strikes a fifth of a second apart *do* land in and out of phase
+with each other, and rendering from random phases averages away the one thing
+worth listening for. The constants mirrored at the top of that file have to be
+kept in step with `bell-voice.ts` by hand.
 
 `?bell-debug` puts a readout in the corner — context state, sample rate,
 audio-clock lag against the wall clock, peak at the bus, live rings. It is

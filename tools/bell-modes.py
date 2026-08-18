@@ -179,8 +179,40 @@ def fit_decays(sig, a, b, modes):
     return modes
 
 
+# The playback chain bell-voice.ts puts every strike through, mirrored so the
+# preview is an audition of what ships and not of the mode table alone. KEEP
+# THESE IN STEP with the constants of the same name over there: the preview
+# used to model none of them, which is exactly how a bell that clanged in the
+# browser sounded clean here.
+LEVEL = 0.3
+DUCK = 0.75
+MAX_RINGING = 8
+SAT = 1.0
+HEAD = 4
+# What the escapement in puja-bell.ts actually settles at: a swing period of
+# about 27 frames, so a strike at every turn is one every 225 ms, and it turns
+# over at a speed of 4.0 against a FULL_OMEGA of 6. Run that integrator and it
+# gives the same two numbers every time — the self-ring is not a range, it is
+# one fixed swing repeated for as long as it is left going, which is why it is
+# worth auditioning on its own.
+AUTO_GAP = 0.225
+AUTO_FORCE = 4.0 / 6
+
+
+def fold(x):
+    """The saturation bus, curve and pad together."""
+    return np.tanh(SAT * np.clip(x / HEAD, -1, 1) * HEAD) / SAT
+
+
 def synth_strike(modes, force, dur, rng):
-    """One strike, the same model bell-voice.ts plays."""
+    """One strike, the same model bell-voice.ts plays.
+
+    Every partial starts at phase zero, because an OscillatorNode does and
+    there is no way to ask it not to. That is not a detail: strikes a fifth of
+    a second apart at the same seven frequencies land in and out of phase with
+    each other, and rendering them from random phases here averaged away the
+    one thing worth auditioning.
+    """
     t = np.arange(int(dur * SR)) / SR
     cutoff = CUTOFF_LO + force * (CUTOFF_HI - CUTOFF_LO)
     out = np.zeros_like(t)
@@ -196,12 +228,14 @@ def synth_strike(modes, force, dur, rng):
                 / 2
                 * env
                 * (
-                    np.sin(2 * np.pi * (m["freq"] - half) * t + rng.uniform(0, 6.28))
-                    + np.sin(2 * np.pi * (m["freq"] + half) * t + rng.uniform(0, 6.28))
+                    np.sin(2 * np.pi * (m["freq"] - half) * t)
+                    + np.sin(2 * np.pi * (m["freq"] + half) * t)
                 )
             )
         else:
-            out += amp * env * np.sin(2 * np.pi * m["freq"] * t + rng.uniform(0, 6.28))
+            out += (
+                amp * env * np.sin(2 * np.pi * (m["freq"] + rng.uniform(-0.3, 0.3)) * t)
+            )
     # The clapper: a few ms of band-limited noise, or the strike fades in.
     tick = rng.standard_normal(len(t)) * np.exp(-t / 0.006)
     spec = np.fft.rfft(tick)
@@ -216,19 +250,49 @@ def render_preview(modes, path):
     peak = max(m["amp"] for m in modes)
     for m in modes:
         m["amp"] /= peak
-    out = np.zeros(int(19 * SR))
+    out = np.zeros(int(30 * SR))
 
-    def put(at, force, dur=4.0):
+    def put(at, force, dur=4.0, scale=None):
         s = synth_strike(modes, force, dur, rng)
+        if scale is not None:
+            s = s * scale
         i = int(at * SR)
         out[i : i + len(s)] += s[: max(0, len(out) - i)]
 
     put(0.5, 0.3)
     put(4.0, 0.65)
     put(7.5, 1.0)
-    for k in range(8):  # the auto-ring, two strikes a second
-        put(11.0 + k * 0.45, 0.5 + 0.1 * (k % 2))
-    out *= 0.9 / np.abs(out).max()
+    single = np.abs(out).max()
+
+    # The auto-ring, at the rate the escapement really runs it, with the
+    # clapper's damping of the tails already sounding and the cap on how many
+    # of them there are. Rendered at half that rate and with neither, this
+    # section stayed politely under a lone strike while the browser was
+    # throwing 8 dB accents on whichever strike landed in phase.
+    at = [11.0 + k * AUTO_GAP for k in range(20)]
+    span = 13.0
+    n = int(span * SR)
+    for k, t0 in enumerate(at):
+        scale = np.ones(n)
+        for m, t1 in enumerate(at[k + 1 :], 1):
+            j = int((t1 - t0) * SR)
+            if j >= n:
+                break
+            scale[j:] *= DUCK
+            if m >= MAX_RINGING:
+                scale[j:] = 0
+                break
+        put(t0, AUTO_FORCE, span, scale)
+
+    ring = np.abs(out[int(11 * SR) :]).max()
+    # Level and fold, not a normalise. Normalising is what let the ring's own
+    # level go unreported for as long as it did.
+    out = fold(LEVEL * out)
+    print(
+        f"\n  peak: one hard strike {LEVEL * single:.2f}, the auto-ring"
+        f" {LEVEL * ring:.2f} ({20 * np.log10(ring / single):+.1f} dB) into a"
+        f" fold that ceilings at {1 / SAT:.2f}"
+    )
 
     import wave
 
