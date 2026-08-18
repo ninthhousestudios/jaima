@@ -667,6 +667,26 @@ without it. It is unity gain at ordinary levels — a lone strike passes
 untouched — and deliberately not a `DynamicsCompressorNode`, whose implicit
 makeup gain would reboost everything.
 
+**A WaveShaper's curve is indexed over [-1, 1] and nothing else**, so the
+bus is a pad of `1 / HEAD` into a curve stretched by `HEAD`, not a bare tanh.
+Drawn straight across [-1, 1] the curve *is* a hard clip above full scale —
+which is where the roar goes: at full-force auto-ring 4.4% of samples pass
+1.0, and flat-topping them measures 36.5 dB of error against the fold the
+bus is supposed to be. That was the audible edge on the ring. Raise `LEVEL`
+or `MAX_RINGING` and `HEAD` has to keep up.
+
+Modes are stopped at `TAIL` time-constants **or** when they fall under
+`FLOOR`, whichever comes first: five of the seven start 25–35 dB below the
+prime and were being held for seconds after they went inaudible, which is
+live oscillators and nothing else.
+
+`?bell-debug` puts a readout in the corner — context state, sample rate,
+audio-clock lag against the wall clock, peak at the bus, live rings. It is
+for the failures that only happen on someone else's hardware, where the
+device losing the context, the render thread starving, and the graph playing
+into a dead output all look identical. `bell-debug.ts` says how to read it.
+Without the flag nothing is built and nothing is attached to the graph.
+
 `MAX_RINGING` caps how many strikes sound at once: past it the oldest tail
 is faded out under the strike that just landed. Unbounded, the auto-ring
 accumulates two-hundred-odd live oscillators and the audio thread misses

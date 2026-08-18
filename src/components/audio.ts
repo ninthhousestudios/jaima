@@ -19,9 +19,32 @@ let ctx: AudioContext | null = null;
  * Constructed on first use, never at init: an AudioContext created without a
  * user gesture starts suspended and browsers log about it. Every caller
  * reaches this from a click.
+ *
+ * It is also watched from the moment it first runs. A phone or tablet takes
+ * the audio device away for its own reasons — a call, another app, a route
+ * change, the system deciding a glitching stream should be torn down — and
+ * what the page sees is the context leaving `running` with no error anywhere.
+ * Nothing here would notice: the bed's source node plays on into a stopped
+ * context and the bell schedules strikes against a clock that is not moving,
+ * so the room goes silent and stays silent until the visitor happens to touch
+ * something that resumes it. Asking for it back is free and, if the device is
+ * genuinely gone, fails quietly.
  */
 export function audio(): AudioContext {
-  if (!ctx) ctx = new AudioContext();
+  if (!ctx) {
+    ctx = new AudioContext();
+    const c = ctx;
+    let ran = false;
+    c.addEventListener('statechange', () => {
+      // Only once it has run: before the first gesture it is legitimately
+      // suspended, and chasing that would be asking for a resume the autoplay
+      // policy is right to refuse.
+      if (c.state === 'running') ran = true;
+      // `interrupted` is not in the DOM's state union but is a real state on
+      // Safari, and the point of the test is anything that is not running.
+      else if (ran && (c.state as string) !== 'closed') void c.resume().catch(() => {});
+    });
+  }
   return ctx;
 }
 

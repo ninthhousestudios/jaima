@@ -72,6 +72,19 @@ const TICK_LEVEL = 0.35;
 const TAIL = 4;
 
 /**
+ * ...and sooner than that when the mode was quiet to start with.
+ *
+ * Four time-constants is the right measure for the prime, which begins at
+ * full level. Five of the seven modes here begin 25-35 dB under it and reach
+ * the same absolute silence in a fraction of their own TAIL, so holding them
+ * out to four buys nothing but live oscillators — and the auto-ring keeps a
+ * dozen strikes going at once, on hardware that may have little to spare.
+ * This is the absolute level, against the prime's own start, at which a mode
+ * has stopped contributing.
+ */
+const FLOOR = 0.004;
+
+/**
  * The saturation bus every strike passes through on its way out.
  *
  * The auto-ring lands a full-force strike at every turn of the swing — about
@@ -85,23 +98,60 @@ const TAIL = 4;
  */
 const SAT = 1.5;
 
-let bus: WaveShaperNode | null = null;
+/**
+ * How far past full scale the fold is drawn — and the whole reason it works.
+ *
+ * A WaveShaper's curve is indexed by the input over [-1, 1] AND NOTHING ELSE:
+ * a sample hotter than 1 does not run off the end of the curve, it is clamped
+ * to the curve's last point. So a tanh drawn across [-1, 1] is a soft fold up
+ * to full scale and a HARD CLIP above it — flat-topped, the one thing this bus
+ * exists to prevent, at exactly the level a dozen summed tails reach. The cure
+ * is to draw the same curve compressed into the range the shaper will look at:
+ * the signal is padded down by HEAD on the way in and the curve stretched by
+ * HEAD to match, so the shaper's ±1 now stands for ±HEAD of signal and the
+ * fold is still bending where a stack of strikes actually lands. Unity slope
+ * at the origin is preserved, so a lone strike still passes untouched.
+ */
+const HEAD = 4;
 
-function bellBus(ctx: AudioContext): WaveShaperNode {
+/** The bus is a pair: the pad that buys the headroom, then the fold. */
+interface Bus {
+  in: GainNode;
+  out: WaveShaperNode;
+}
+
+let bus: Bus | null = null;
+
+function bellBus(ctx: AudioContext): Bus {
   if (!bus) {
-    bus = ctx.createWaveShaper();
-    const curve = new Float32Array(257);
+    const shaper = ctx.createWaveShaper();
+    // Long, because the interesting part of the curve is now squeezed into
+    // the middle eighth of it — a lone strike must not come out stepped.
+    const curve = new Float32Array(2049);
     for (let i = 0; i < curve.length; i++) {
       const x = (i / (curve.length - 1)) * 2 - 1;
-      curve[i] = Math.tanh(SAT * x) / SAT;
+      curve[i] = Math.tanh(SAT * HEAD * x) / SAT;
     }
-    bus.curve = curve;
+    shaper.curve = curve;
     // The curve bends, so it makes harmonics; without oversampling they
     // alias back under Nyquist as inharmonic grit.
-    bus.oversample = '4x';
-    bus.connect(ctx.destination);
+    shaper.oversample = '4x';
+    const pad = ctx.createGain();
+    pad.gain.value = 1 / HEAD;
+    pad.connect(shaper).connect(ctx.destination);
+    bus = { in: pad, out: shaper };
   }
   return bus;
+}
+
+/**
+ * The bus's output, built if it is not there yet, for a meter to hang on.
+ *
+ * Diagnostics only — `?bell-debug`, see `bell-debug.ts`. Nothing in the room
+ * calls this, and with the panel closed nothing is ever attached.
+ */
+export function bellTap(): AudioNode {
+  return bellBus(audio()).out;
 }
 
 let tick: AudioBuffer | null = null;
@@ -116,6 +166,14 @@ interface Ring {
 }
 
 const ringing = new Set<Ring>();
+
+/** Strikes fired since the page loaded. Read by `?bell-debug`, nothing else. */
+let struck = 0;
+
+/** What the debug panel reports. Diagnostics only. */
+export function bellStats(): { rings: number; strikes: number } {
+  return { rings: ringing.size, strikes: struck };
+}
 
 /**
  * How many strikes may sound at once. The resonance of strikes over strikes
@@ -149,13 +207,14 @@ export function warmBell(): void {
 export function strikeBell(force: number): void {
   const ctx = audio();
   const t0 = ctx.currentTime;
+  struck++;
 
   const out = ctx.createGain();
   out.gain.value = LEVEL * force;
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
   lp.frequency.value = CUTOFF_LO + force * (CUTOFF_HI - CUTOFF_LO);
-  lp.connect(out).connect(bellBus(ctx));
+  lp.connect(out).connect(bellBus(ctx).in);
 
   const oscs: OscillatorNode[] = [];
   let last: OscillatorNode | null = null;
@@ -166,6 +225,9 @@ export function strikeBell(force: number): void {
     // does not run identically strike after strike.
     const amp = level * Math.pow(10, (Math.random() * 4 - 2) / 20);
     const parts = beat > 0.05 ? [freq - beat / 2, freq + beat / 2] : [freq];
+    // Whichever comes first: four of its own time-constants, or the moment
+    // its envelope passes under FLOOR.
+    const life = Math.min(tau * TAIL, tau * Math.log(Math.max(amp, FLOOR) / FLOOR));
     // One envelope per mode; a pair's two sines sum into it.
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(amp / parts.length, t0);
@@ -176,10 +238,10 @@ export function strikeBell(force: number): void {
       osc.frequency.value = f + Math.random() * 0.6 - 0.3;
       osc.connect(gain);
       osc.start(t0);
-      osc.stop(t0 + tau * TAIL);
+      osc.stop(t0 + life);
       oscs.push(osc);
-      if (tau > longest) {
-        longest = tau;
+      if (life > longest) {
+        longest = life;
         last = osc;
       }
     }
@@ -201,6 +263,7 @@ export function strikeBell(force: number): void {
     // whether it ran its course or an eviction moved its stop time up.
     last.onended = () => {
       ringing.delete(ring);
+      lp.disconnect();
       out.disconnect();
     };
   }

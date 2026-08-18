@@ -36,6 +36,7 @@ import Base from '../layouts/Base.astro';
   } from '../components/teachings-mode';
   import { initSoundMode } from '../components/sound-mode';
   import { initAratiMode, setAratiMode } from '../components/arati-mode';
+  import { initBellDebug } from '../components/bell-debug';
   import type { LotusNav, Mode } from '../components/lotus-nav';
 
   let modesInitialized = false;
@@ -185,6 +186,9 @@ import Base from '../layouts/Base.astro';
 
   initAtmosphere();
   initTabMantra();
+  // Off unless the url asks for it, and then it is the only thing on the page
+  // that is not part of the room. See bell-debug.ts.
+  initBellDebug();
 
   // Built before the threshold clears, so the altar's images are decoded by
   // the time the room fades in and nothing pops into place.
