@@ -45,6 +45,14 @@ the `.relr.dyn` sections a modern toolchain emits — every library fails with
 "unknown type [0x13]" and the bundle aborts. `NO_STRIP` skips the stripping;
 the AppImage is a little larger and works.
 
+**This is the failure hiding behind Tauri's opaque `failed to run
+linuxdeploy`.** Tauri swallows linuxdeploy's own output, so a plain
+`npm run app:build` (no `NO_STRIP`) dies with that one uninformative line and
+nothing else — the `.deb` and `.rpm` are already built, only the AppImage
+fails. Setting `NO_STRIP=true` is the whole fix; it is not optional on Arch. To
+see the real errors behind the mask when diagnosing something else, add
+`--verbose` and the per-library strip failures scroll past.
+
 Two more Linux notes: the standalone binary is
 `src-tauri/target/release/jaima` — the frontend is embedded at compile time,
 so it runs from anywhere but shows the site as of its build. And bundling
