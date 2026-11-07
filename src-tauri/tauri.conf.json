@@ -4,6 +4,7 @@
   "version": "0.1.1",
   "identifier": "com.ninthhousestudios.jaima",
   "build": {
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../public"
   },
   "app": {
